@@ -5,8 +5,7 @@ from hyphen import Hyphenator
 
 
 # Hyphenator class instance
-# TODO: Allocate earlier and re-use for every tokenize_text() call,
-#       as initialization takes almost a second!
+# Lazy-initialized in tokenize_text()
 hyphenator = None
 
 
