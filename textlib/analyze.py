@@ -1,27 +1,80 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
-import os
-import sys
-import json
-import time
+import os, sys
+import csv, json
+import time, datetime
 import string
 import hashlib
-import datetime
 from textlib import tokenize
 
+
+####################################
+#
+# Constants
+#
+####################################
+
+FILESUFFIX_JSON = '_meta.json'
+FILESUFFIX_CSV = '_wordfrequencies.csv'
+DIGITS = 5
+
+
+####################################
+#
+# Standard functions
+#
+####################################
+
+def read_text_file(filePath):
+    """Read text file as raw binary file,
+    and return contents.
+    """
+
+    with open(filePath, 'rb') as textFile:
+        text = textFile.read()
+    return text
+
+def write_json(data, filename):
+    jsonData = json.dumps(data, indent=4, sort_keys=True)
+    with open(filename, 'wb') as jsonFile:
+        jsonFile.write(jsonData)
+
+def write_csv(data, filename):
+    # Prepare DSV rows
+    headerRows = [['Filename'],['Date of Analysis'],['MD5 hash']]
+    dataRows = [['Word'],['Count'],['Frequency']]
+
+    headerRows[0].append(data['_meta']['filename'])
+    headerRows[1].append(data['_meta']['dateOfAnalysis'])
+    headerRows[2].append(data['_meta']['md5'])
+
+    for k,v in data['words'].iteritems():
+        dataRows[0].append(k.encode('utf-8'))
+        dataRows[1].append(round(v[0], DIGITS))
+        dataRows[2].append(round(v[1], DIGITS))
+
+    # Begin writing
+    with open(filename, 'wb') as csvFile:
+        csvWriter = csv.writer(csvFile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        csvWriter.writerows(headerRows)
+        csvWriter.writerow([])
+        csvWriter.writerows(dataRows)
+
+
+####################################
+#
+# Analysis
+#
+####################################
 
 def count_punctuation(sentence):
     count = lambda l1, l2: len(list(filter(lambda c: c in l2, l1)))
     return count(sentence, string.punctuation)
 
-
 def compute_metadata(textData):
     """Parse textData dictionary and compute the additional metadata.
     The resulting metadata will be inserted into the dictionary.
     """
-
-    DIGITS = 5
 
     # Total counters for whole text
     totalSyllableCountPerText = 0
@@ -85,7 +138,6 @@ def compute_metadata(textData):
     textData['averageWordLength'] = round(float(totalCharCountPerText) / float(totalWordCountPerText), DIGITS)
     textData['averagePunctuationPerSentence'] = round(float(totalPunctuationCountPerText) / float(sentenceCount), DIGITS)
 
-
 def metadata_header(filename, text):
     # Hash
     #txt = text.encode('ascii', errors='ignore')
@@ -104,7 +156,6 @@ def metadata_header(filename, text):
     }
 
     return meta
-
 
 def compute_word_table(textData):
     wordTable = {}
@@ -131,10 +182,15 @@ def compute_word_table(textData):
     return resultTable
 
 
+####################################
+#
+# Readability / Reading Ease indices
+#
+####################################
+
 # Flesch-Reading-Eass Index (DE)
 def compute_flesch_reading_ease(asl, asw):
     return 180.0 - asl - (58.5 * asw)
-
 
 # Flasch-Reading-Ease Assessment
 def assess_flesch_reading_ease(fre):
@@ -155,16 +211,13 @@ def assess_flesch_reading_ease(fre):
     elif fre <= 100.0:
         return 'very easy'
 
-
 # Flesch-Kincaid Grade Level (US)
 def compute_flesch_kincaid_grade_level(asl, asw):
     return (0.39 * asl) + (11.8 * asw) - 15.59
 
-
 # Gunning-Fog Index (US)
 def compute_gunning_fog_index(w, s, d):
     return ((w / s) + d) * 0.4
-
 
 # Wiener Sachtextformel (DE)
 def compute_wiener_sachtextformel(MS, SL, IW, ES):
@@ -173,7 +226,6 @@ def compute_wiener_sachtextformel(MS, SL, IW, ES):
     wstf3 = 0.2963 * MS + 0.1905 * SL - 1.1144
     wstf4 = 0.2656 * SL + 0.2744 * MS - 1.693
     return (wstf1, wstf2, wstf3, wstf4)
-
 
 def compute_reading_ease_indices(textData):
     DIGITS = 5
@@ -235,15 +287,11 @@ def compute_reading_ease_indices(textData):
     return resultDict
 
 
-def read_text_file(filePath):
-    """Read text file as raw binary file,
-    and return contents.
-    """
-
-    with open(filePath, 'rb') as textFile:
-        text = textFile.read()
-    return text
-
+####################################
+#
+# Process / flow
+#
+####################################
 
 def process_text(text):
     """Perform all the analyses for a complete text
@@ -266,7 +314,6 @@ def process_text(text):
 
     return (textData, wordTable)
 
-
 def process_file(filePath):
     """Load a file, process it, and write the result files
     """
@@ -277,40 +324,32 @@ def process_file(filePath):
 
     # Export paths
     fileBasePath = os.path.splitext(filePath)[0]
-    metadataFilePath = os.path.join(fileBasePath + '_meta.json')
-    wordTableFilePath = os.path.join(fileBasePath + '_wordcounts.json')
+    metadataFilePath = os.path.join(fileBasePath + FILESUFFIX_JSON)
+    wordTableFilePath = os.path.join(fileBasePath + FILESUFFIX_CSV)
     print('Import text file : ' + filePath)
     print('Export metadata  : ' + metadataFilePath)
     print('Export word table: ' + wordTableFilePath)
     print('')
 
     # Read text file
+    print('Reading file...')
     text = read_text_file(filePath).decode('utf-8')
-
-    # Create meta header
-    metaHeader = metadata_header(filePath, text)
 
     # Process text file
     (textData, wordTable) = process_text(text)
 
-    # Insert Headers
-    print('Inserting headers...')
-    textData['_meta'] = metaHeader
-    wordTable['_meta'] = metaHeader
 
-    # Make JSON
-    print('Serializing to JSON...')
-    jsonTextMetadata = json.dumps(textData, indent=4, sort_keys=True)
-    jsonWordCountTable = json.dumps(wordTable, indent=4, sort_keys=True)
+    # Insert headers
+    print('Inserting meta headers...')
+    metaheader = metadata_header(filePath, text)
+    textData['_meta'] = metaheader
+    wordTable['_meta'] = metaheader
 
     # Write result filea
-    print('Writing metadata file...')
-    with open(metadataFilePath, 'wb') as jsonFile:
-        jsonFile.write(jsonTextMetadata)
-    print('Writing word count table file...')
-    with open(wordTableFilePath, 'wb') as jsonFile:
-        jsonFile.write(jsonWordCountTable)
-
+    print('Writing JSON metadata file...')
+    write_json(textData, metadataFilePath)
+    print('Writing word count CSV table file...')
+    write_csv(wordTable, wordTableFilePath)
 
 def analyze(filePath):
     # Check args
