@@ -4,7 +4,7 @@ import os, sys
 import csv, json
 import time, datetime
 import string
-import hashlib
+import hashlib, zlib
 from textlib import tokenize
 
 
@@ -14,8 +14,13 @@ from textlib import tokenize
 #
 ####################################
 
-FILESUFFIX_JSON = '_meta.json'
+# Suffix added to metadata filenames
+FILESUFFIX_JSON = '_metadata.json'
+
+# Suffix added to word table filenames
 FILESUFFIX_CSV = '_wordfrequencies.csv'
+
+# Decimal places for rounding any float values in files
 DIGITS = 5
 
 
@@ -25,35 +30,78 @@ DIGITS = 5
 #
 ####################################
 
+def get_datetime_now(dtFormat = '%Y-%m-%d %H:%M'):
+    now = datetime.datetime.now()
+    return now.strftime(dtFormat)
+
+
+####################################
+#
+# File operations
+#
+####################################
+
+def shorten_filename(full_path):
+    """Takes a path and returns only the
+    last part of it (e.g. name of the file)
+    """
+    return os.path.basename(full_path)
+
+def get_file_crc32(filename):
+    """Compute CRC32 checksum from a file
+    """
+    prev = 0
+    with open(filename, 'rb') as theFile:
+        for chunk in theFile:
+            prev = zlib.crc32(chunk, prev)
+
+    return "%X"%(prev & 0xFFFFFFFF)
+
+def get_file_md5(filename):
+    """Compute MD5 Hash from a file
+    """
+    hash_md5 = hashlib.md5()
+    with open(filename, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
 def read_text_file(filePath):
     """Read text file as raw binary file,
     and return contents.
     """
-
     with open(filePath, 'rb') as textFile:
         text = textFile.read()
     return text
 
 def write_json(data, filename):
+    """Export data as structured JSON file
+    """
     jsonData = json.dumps(data, indent=4, sort_keys=True)
     with open(filename, 'wb') as jsonFile:
         jsonFile.write(jsonData)
 
 def write_csv(data, filename):
-    # Prepare DSV rows
-    headerRows = [['Filename'],['Date of Analysis'],['MD5 hash']]
-    dataRows = [['Word'],['Count'],['Frequency']]
+    """Export data as CSV file
+    """
 
+    # Prepare CSV rows
+    headerRows = [['Filename'], ['Date of Analysis'], ['CRC32 Checksum'], ['MD5 Hash']]
+    dataRows = [['Word'], ['Count'], ['Frequency']]
+
+    # Fill meta rows
     headerRows[0].append(data['_meta']['filename'])
     headerRows[1].append(data['_meta']['dateOfAnalysis'])
-    headerRows[2].append(data['_meta']['md5'])
+    headerRows[2].append(data['_meta']['crc32'])
+    headerRows[3].append(data['_meta']['md5'])
 
+    # Fill data rows
     for k,v in data['words'].iteritems():
         dataRows[0].append(k.encode('utf-8'))
         dataRows[1].append(round(v[0], DIGITS))
         dataRows[2].append(round(v[1], DIGITS))
 
-    # Begin writing
+    # Write file
     with open(filename, 'wb') as csvFile:
         csvWriter = csv.writer(csvFile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
         csvWriter.writerows(headerRows)
@@ -68,6 +116,8 @@ def write_csv(data, filename):
 ####################################
 
 def count_punctuation(sentence):
+    """Count number of punctuation characters in a string.
+    """
     count = lambda l1, l2: len(list(filter(lambda c: c in l2, l1)))
     return count(sentence, string.punctuation)
 
@@ -75,12 +125,12 @@ def compute_metadata(textData):
     """Parse textData dictionary and compute the additional metadata.
     The resulting metadata will be inserted into the dictionary.
     """
-
     # Total counters for whole text
     totalSyllableCountPerText = 0
     totalWordCountPerText = 0
     totalCharCountPerText = 0
     totalPunctuationCountPerText = 0
+    maxPunctuationCountPerSentence = 0
 
     # Iterate sentences
     for sentence in textData['sentences']:
@@ -108,6 +158,7 @@ def compute_metadata(textData):
         # Punctuation count
         punctuationCount = count_punctuation(sentence['sentence'])
         sentence['punctuationCount'] = punctuationCount
+        maxPunctuationCountPerSentence = max(maxPunctuationCountPerSentence, punctuationCount)
         totalPunctuationCountPerText += punctuationCount
 
         # Char count
@@ -132,6 +183,7 @@ def compute_metadata(textData):
     textData['wordCount'] = totalWordCountPerText
     textData['charCount'] = totalCharCountPerText
     textData['punctuationCount'] = totalPunctuationCountPerText
+    textData['maxPunctuationCountPerSentence'] = maxPunctuationCountPerSentence
     textData['averageWordsPerSentence'] = round(float(totalWordCountPerText) / float(sentenceCount), DIGITS)
     textData['averageSyllablesPerWord'] = round(float(totalSyllableCountPerText) / float(totalWordCountPerText), DIGITS)
     textData['averageSyllableLength'] = round(float(totalSyllableCountPerText) / float(totalCharCountPerText), DIGITS)
@@ -139,25 +191,25 @@ def compute_metadata(textData):
     textData['averagePunctuationPerSentence'] = round(float(totalPunctuationCountPerText) / float(sentenceCount), DIGITS)
 
 def metadata_header(filename, text):
-    # Hash
-    #txt = text.encode('ascii', errors='ignore')
-    md5 = hashlib.md5()
-    md5Input = text.encode('utf-8')
-    md5.update(md5Input)
-
+    """Create header dataset with some basic info.
+    """
     # Current date & time
-    now = datetime.datetime.now()
-    nowStr = now.strftime("%Y-%m-%d %H:%M")
+    nowStr = get_datetime_now()
 
     meta = {
-        'filename' : filename,
-        'md5' : md5.hexdigest(),
+        'filename' : shorten_filename(filename),
+        'md5' : get_file_md5(filename),
+        'crc32' : get_file_crc32(filename),
         'dateOfAnalysis' : nowStr
     }
 
     return meta
 
 def compute_word_table(textData):
+    """Traverse textData dictionary and compute a table
+    with occurring words, their absolute quanitities and
+    their relative frequencies.
+    """
     wordTable = {}
 
     # Iterate sentences
@@ -188,12 +240,15 @@ def compute_word_table(textData):
 #
 ####################################
 
-# Flesch-Reading-Eass Index (DE)
 def compute_flesch_reading_ease(asl, asw):
+    """Flesch-Reading-Eass Index (DE)
+    """
     return 180.0 - asl - (58.5 * asw)
 
-# Flasch-Reading-Ease Assessment
 def assess_flesch_reading_ease(fre):
+    """Flasch-Reading-Ease Assessment
+    Returns an assessment depending on the given fre value.
+    """
     if fre < 0.0:
         return 'Invalid FRE index'
     elif fre <= 30.0:
@@ -211,16 +266,19 @@ def assess_flesch_reading_ease(fre):
     elif fre <= 100.0:
         return 'very easy'
 
-# Flesch-Kincaid Grade Level (US)
 def compute_flesch_kincaid_grade_level(asl, asw):
+    """Flesch-Kincaid Grade Level (US)
+    """
     return (0.39 * asl) + (11.8 * asw) - 15.59
 
-# Gunning-Fog Index (US)
 def compute_gunning_fog_index(w, s, d):
+    """Gunning-Fog Index (US)
+    """
     return ((w / s) + d) * 0.4
 
-# Wiener Sachtextformel (DE)
 def compute_wiener_sachtextformel(MS, SL, IW, ES):
+    """Wiener Sachtextformel (DE)
+    """
     wstf1 = 0.1935 * MS + 0.1672 * SL + 0.1297 * IW - 0.0327 * ES - 0.875
     wstf2 = 0.2007 * MS + 0.1682 * SL + 0.1373 * IW - 2.779
     wstf3 = 0.2963 * MS + 0.1905 * SL - 1.1144
@@ -228,6 +286,9 @@ def compute_wiener_sachtextformel(MS, SL, IW, ES):
     return (wstf1, wstf2, wstf3, wstf4)
 
 def compute_reading_ease_indices(textData):
+    """Traverse textData and compute all
+    readability / reading ease indices.
+    """
     DIGITS = 5
 
     # Input data
@@ -283,7 +344,6 @@ def compute_reading_ease_indices(textData):
         'Dritte Wiener Sachtextformel (DE)' : round(wsf3, DIGITS),
         'Vierte Wiener Sachtextformel (DE)' : round(wsf4, DIGITS),
     }
-
     return resultDict
 
 
@@ -317,11 +377,6 @@ def process_text(text):
 def process_file(filePath):
     """Load a file, process it, and write the result files
     """
-
-    # Check input file
-    if not os.path.isfile(filePath):
-        sys.exit('ERROR: "' + filePath + '" is not the path of an existing file!')
-
     # Export paths
     fileBasePath = os.path.splitext(filePath)[0]
     metadataFilePath = os.path.join(fileBasePath + FILESUFFIX_JSON)
@@ -329,7 +384,6 @@ def process_file(filePath):
     print('Import text file : ' + filePath)
     print('Export metadata  : ' + metadataFilePath)
     print('Export word table: ' + wordTableFilePath)
-    print('')
 
     # Read text file
     print('Reading file...')
@@ -350,17 +404,35 @@ def process_file(filePath):
     write_json(textData, metadataFilePath)
     print('Writing word count CSV table file...')
     write_csv(wordTable, wordTableFilePath)
+    print('')
 
-def analyze(filePath):
-    # Check args
-    if filePath is None or len(filePath) == 0:
+def analyze(sourcePath, fileExtension='.txt'):
+    """Check filePath, start processing, measure processing time
+    """
+    # Check file path
+    if sourcePath is None or len(sourcePath) == 0:
         sys.exit('ERROR: No path to text file provided!')
+    if not os.path.exists(sourcePath):
+        sys.exit('ERROR: "' + sourcePath + '" is not the path of an existing file or folder!')
 
     # Memorize start time
     timeStart = time.time()
 
-    # Process the file, including all analyses and result data export
-    process_file(filePath)
+    # Start processing
+    multiFileMsg = ''
+    if os.path.isfile(sourcePath):
+        # Process single file
+        process_file(sourcePath)
+    elif os.path.isdir(sourcePath):
+        # Process files in folder
+        fileCount = 0
+        for file in os.listdir(sourcePath):
+            if file.endswith(fileExtension):
+                process_file(os.path.join(sourcePath, file))
+                fileCount += 1
+        multiFileMsg = str(fileCount) + ' files '
+    else:
+        print('That is weird. It seems to be neither a file nor a folder...')
 
+    print('Finished processing ' + multiFileMsg + '(' + str(round(time.time() - timeStart, 3)) + ' seconds)')
     print('')
-    print('Finished (' + str(round(time.time() - timeStart, 3)) + ' seconds)')

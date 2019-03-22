@@ -7,7 +7,7 @@ from textlib import analyze
 
 def main():
     # Title
-    print('TextTools 0.2')
+    print('TextTools 0.3')
     print('2019 by Frank Willeke')
     print(' ')
 
@@ -18,7 +18,7 @@ def main():
 
     # Text analysis
     if options.analyze:
-        analyze.analyze(options.analyze)
+        analyze.analyze(options.analyze, fileExtension='.txt')
         return
 
     parser.print_help()

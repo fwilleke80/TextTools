@@ -1,28 +1,23 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
-import string
 import nltk
 from hyphen import Hyphenator
 
 
-hyphenator = Hyphenator('de_DE')
+# Hyphenator class instance
+# TODO: Allocate earlier and re-use for every tokenize_text() call,
+#       as initialization takes almost a second!
+hyphenator = None
 
 
-def is_alphanumeric(word):
-    for char in word:
-        if char.isalpha() == False:
+def is_alphanumeric(s):
+    """Return False if there are any non-alphanumeric
+    characters in the given string. Otherwise return True.
+    """
+    for c in s:
+        if c.isalpha() == False:
             return False
     return True
-
-
-# def trim_punctuation(word):
-#     wordStr = str(word.encode('utf-8'))
-#     while wordStr[:1] in string.punctuation:
-#         wordStr = wordStr[1:]
-#     while wordStr[-1:] in string.punctuation:
-#         wordStr = wordStr[:-1]
-#     return unicode(wordStr)
 
 
 def tokenize_text(text):
@@ -36,6 +31,11 @@ def tokenize_text(text):
     Each "sentence" element contains the original sentence, and a list with all words in the sentence.
     Each "word" element contains the original word, and a list with all syllables in the word.
     """
+    # Hyphenator class instance
+    global hyphenator
+    if hyphenator is None:
+        print('Initializing Hyphenator...')
+        hyphenator = Hyphenator('de_DE')
 
     # List of data sets for each sentence in this text
     sentenceDataList = []
@@ -53,9 +53,6 @@ def tokenize_text(text):
 
         # Iterate words
         for word in words:
-            # Trim punctuation from beginning and end of word
-            #word = trim_punctuation(word)
-
             # Ignore short "words" that do not contain alphanumerics
             if len(word) == 1 and not word[0].isalpha():
                 continue
@@ -79,9 +76,6 @@ def tokenize_text(text):
             }
             wordDataList.append(wordData)
 
-        # print 'WordDataList:', wordDataList
-        # print ''
-
         # Add to sentence dat list
         sentenceData = {
             'sentence' : sentence,
@@ -89,11 +83,7 @@ def tokenize_text(text):
         }
         sentenceDataList.append(sentenceData)
 
-    # print 'SentenceDataList:', sentenceDataList
-    # print ''
-
     textData = {
-        #'text' : text,
         'sentences' : sentenceDataList
     }
 
