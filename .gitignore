@@ -1,4 +1,6 @@
+./test
 *.DS_Store
 *.pyc
 *.sublime-workspace
-
+*.json
+*.csv
