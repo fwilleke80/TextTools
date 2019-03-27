@@ -294,20 +294,20 @@ def compute_reading_ease_indices(textData):
     (wsf1, wsf2, wsf3, wsf4) = readability.compute_wiener_sachtextformel(MS=ms, SL=asl, IW=iw, ES=es)
 
     # All results go into the dict
-    resultDict = {
-        'Words with at least 6 letters' : words_with_at_least_6_letters,
-        'Words with at least 3 syllables' : words_with_at_least_3_syllables,
-        'Words with only one syllable' : words_with_only_one_syllable,
-        'Flesch-Reading-Ease (DE)' : round(fre, DIGITS),
-        'Flesch-Reading-Ease (DE) Assessment' : frea,
-        'Flesch-Kincaid Grade Level (US)' : round(fkgl, DIGITS),
-        'Gunning-Fog Index (US)' : round(gfi, DIGITS),
-        'Erste Wiener Sachtextformel (DE)' : round(wsf1, DIGITS),
-        'Zweite Wiener Sachtextformel (DE)' : round(wsf2, DIGITS),
-        'Dritte Wiener Sachtextformel (DE)' : round(wsf3, DIGITS),
-        'Vierte Wiener Sachtextformel (DE)' : round(wsf4, DIGITS),
-    }
-    return resultDict
+    results = [
+        { 'id' : 'words_with_6_letters', 'name' : 'Words with at least 6 letters' , 'value' : words_with_at_least_6_letters},
+        { 'id' : 'words_with_at_least_3_syllables', 'name' : 'Words with at least 3 syllables' , 'value' : words_with_at_least_3_syllables},
+        { 'id' : 'words_with_only_one_syllable', 'name' : 'Words with only one syllable' , 'value' : words_with_only_one_syllable},
+        { 'id' : 'fre', 'name' : 'Flesch-Reading-Ease (DE)' , 'value' : round(fre, DIGITS)},
+        { 'id' : 'frea', 'name' : 'Flesch-Reading-Ease (DE) Assessment' , 'value' : frea},
+        { 'id' : 'fkgl', 'name' : 'Flesch-Kincaid Grade Level (US)' , 'value' : round(fkgl, DIGITS)},
+        { 'id' : 'gfi', 'name' : 'Gunning-Fog Index (US)' , 'value' : round(gfi, DIGITS)},
+        { 'id' : 'wsf1', 'name' : 'Erste Wiener Sachtextformel (DE)' , 'value' : round(wsf1, DIGITS)},
+        { 'id' : 'wsf2', 'name' : 'Zweite Wiener Sachtextformel (DE)' , 'value' : round(wsf2, DIGITS)},
+        { 'id' : 'wsf3', 'name' : 'Dritte Wiener Sachtextformel (DE)' , 'value' : round(wsf3, DIGITS)},
+        { 'id' : 'wsf4', 'name' : 'Vierte Wiener Sachtextformel (DE)' , 'value' : round(wsf4, DIGITS)},
+    ]
+    return results
 
 
 ####################################
