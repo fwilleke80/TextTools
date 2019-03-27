@@ -5,8 +5,7 @@ import csv, json
 import time, datetime
 import operator
 import string
-import hashlib, zlib
-from textlib import tokenize,readability
+from textlib import tokenize,readability,filehash
 
 
 ####################################
@@ -48,25 +47,6 @@ def shorten_filename(full_path):
     """
     return os.path.basename(full_path)
 
-def get_file_crc32(filename):
-    """Compute CRC32 checksum from a file
-    """
-    prev = 0
-    with open(filename, 'rb') as theFile:
-        for chunk in theFile:
-            prev = zlib.crc32(chunk, prev)
-
-    return "%X"%(prev & 0xFFFFFFFF)
-
-def get_file_md5(filename):
-    """Compute MD5 Hash from a file
-    """
-    hash_md5 = hashlib.md5()
-    with open(filename, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
-
 def read_text_file(filePath):
     """Read text file as raw binary file,
     and return contents.
@@ -85,34 +65,31 @@ def write_json(data, filename):
 def write_csv(data, filename):
     """Export data as CSV file
     """
-
-    # Prepare CSV rows
-    headerRows = [['Filename'], ['Date of Analysis'], ['CRC32 Checksum'], ['MD5 Hash']]
-    dataRows = [['Word'], ['Count'], ['Frequency']]
-
     # Fill meta rows
+    headerRows = []
     try:
-        headerRows[0].append(data['_meta']['Filename'])
+        headerRows.append(['Filename', data['_meta']['Filename']])
     except:
         pass
     try:
-        headerRows[0].append(data['_meta']['Folder'])
+        headerRows.append(['Folder', data['_meta']['Folder']])
     except:
         pass
     try:
-        headerRows[1].append(data['_meta']['Date of analysis'])
+        headerRows.append(['Date of Analysis', data['_meta']['Date of analysis']])
     except:
         pass
     try:
-        headerRows[2].append(data['_meta']['CRC32'])
+        headerRows.append(['CRC32 Checksum', data['_meta']['CRC32']])
     except:
         pass
     try:
-        headerRows[3].append(data['_meta']['MD5'])
+        headerRows.append(['MD5 Hash', data['_meta']['MD5']])
     except:
         pass
 
     # Fill data rows
+    dataRows = [['Word'], ['Count'], ['Frequency']]
     for dataSet in sorted(data['words'].items(), key=operator.itemgetter(1), reverse=True):
         dataRows[0].append(dataSet[0].encode('utf-8'))
         wordData = dataSet[1]
@@ -218,8 +195,8 @@ def metadata_header(filename, text):
 
     meta = {
         'Filename' : shorten_filename(filename),
-        'MD5' : get_file_md5(filename),
-        'CRC32' : get_file_crc32(filename),
+        'MD5' : filehash.get_file_md5(filename),
+        'CRC32' : filehash.get_file_crc32(filename),
         'Date of analysis' : nowStr
     }
 
