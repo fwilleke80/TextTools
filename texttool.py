@@ -7,7 +7,7 @@ from textlib import analyze
 
 def main():
     # Title
-    print('TextTools 0.3')
+    print('TextTools 0.4')
     print('2019 by Frank Willeke')
     print(' ')
 

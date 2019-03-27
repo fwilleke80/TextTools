@@ -3,9 +3,10 @@
 import os, sys
 import csv, json
 import time, datetime
+import operator
 import string
 import hashlib, zlib
-from textlib import tokenize
+from textlib import tokenize,readability
 
 
 ####################################
@@ -90,16 +91,35 @@ def write_csv(data, filename):
     dataRows = [['Word'], ['Count'], ['Frequency']]
 
     # Fill meta rows
-    headerRows[0].append(data['_meta']['filename'])
-    headerRows[1].append(data['_meta']['dateOfAnalysis'])
-    headerRows[2].append(data['_meta']['crc32'])
-    headerRows[3].append(data['_meta']['md5'])
+    try:
+        headerRows[0].append(data['_meta']['Filename'])
+    except:
+        pass
+    try:
+        headerRows[0].append(data['_meta']['Folder'])
+    except:
+        pass
+    try:
+        headerRows[1].append(data['_meta']['Date of analysis'])
+    except:
+        pass
+    try:
+        headerRows[2].append(data['_meta']['CRC32'])
+    except:
+        pass
+    try:
+        headerRows[3].append(data['_meta']['MD5'])
+    except:
+        pass
 
     # Fill data rows
-    for k,v in data['words'].iteritems():
-        dataRows[0].append(k.encode('utf-8'))
-        dataRows[1].append(round(v[0], DIGITS))
-        dataRows[2].append(round(v[1], DIGITS))
+    for dataSet in sorted(data['words'].items(), key=operator.itemgetter(1), reverse=True):
+        dataRows[0].append(dataSet[0].encode('utf-8'))
+        wordData = dataSet[1]
+
+        dataRows[1].append(int(wordData['count']))
+        dataRows[2].append(round(wordData['frequency'], DIGITS))
+
 
     # Write file
     with open(filename, 'wb') as csvFile:
@@ -197,10 +217,10 @@ def metadata_header(filename, text):
     nowStr = get_datetime_now()
 
     meta = {
-        'filename' : shorten_filename(filename),
-        'md5' : get_file_md5(filename),
-        'crc32' : get_file_crc32(filename),
-        'dateOfAnalysis' : nowStr
+        'Filename' : shorten_filename(filename),
+        'MD5' : get_file_md5(filename),
+        'CRC32' : get_file_crc32(filename),
+        'Date of analysis' : nowStr
     }
 
     return meta
@@ -219,13 +239,24 @@ def compute_word_table(textData):
             # Make word lower-case
             wordStr = word['word'].lower()
             # Update word count in table
-            wordTable[wordStr] = wordTable.get(wordStr, 0) + 1
+            count = wordTable.get(wordStr, {}).get('count', 0)
+            wordTable[wordStr] = {
+                'count' : int(count + 1),
+                'frequency' : float(0.0)
+            }
 
     # Calculate relative word frequencies
-    wordCount = textData['wordCount']
-    for key, value in wordTable.iteritems():
+    totalWordCount = textData['wordCount']
+    for key, valueDict in wordTable.iteritems():
         # Value is now a tuple with the value and the relative value
-        wordTable[key] = (value, float(value) / float(wordCount))
+        # TODO: Use child Dict, not a stupid Tuple!
+        #       That will also make the CSV export easier!
+        #wordTable[key] = (value, float(value) / float(wordCount))
+        count = valueDict['count']
+        wordTable[key] = {
+            'count' : count,
+            'frequency' : float(count) / float(totalWordCount)
+        }
 
     resultTable = {
         'words' : wordTable,
@@ -236,54 +267,9 @@ def compute_word_table(textData):
 
 ####################################
 #
-# Readability / Reading Ease indices
+# Readability
 #
 ####################################
-
-def compute_flesch_reading_ease(asl, asw):
-    """Flesch-Reading-Eass Index (DE)
-    """
-    return 180.0 - asl - (58.5 * asw)
-
-def assess_flesch_reading_ease(fre):
-    """Flasch-Reading-Ease Assessment
-    Returns an assessment depending on the given fre value.
-    """
-    if fre < 0.0:
-        return 'Invalid FRE index'
-    elif fre <= 30.0:
-        return 'very difficult'
-    elif fre <= 50.0:
-        return 'difficult'
-    elif fre <= 60.0:
-        return 'medium difficult'
-    elif fre <= 70.0:
-        return 'medium'
-    elif fre <= 80.0:
-        return 'medium easy'
-    elif fre <= 90.0:
-        return 'easy'
-    elif fre <= 100.0:
-        return 'very easy'
-
-def compute_flesch_kincaid_grade_level(asl, asw):
-    """Flesch-Kincaid Grade Level (US)
-    """
-    return (0.39 * asl) + (11.8 * asw) - 15.59
-
-def compute_gunning_fog_index(w, s, d):
-    """Gunning-Fog Index (US)
-    """
-    return ((w / s) + d) * 0.4
-
-def compute_wiener_sachtextformel(MS, SL, IW, ES):
-    """Wiener Sachtextformel (DE)
-    """
-    wstf1 = 0.1935 * MS + 0.1672 * SL + 0.1297 * IW - 0.0327 * ES - 0.875
-    wstf2 = 0.2007 * MS + 0.1682 * SL + 0.1373 * IW - 2.779
-    wstf3 = 0.2963 * MS + 0.1905 * SL - 1.1144
-    wstf4 = 0.2656 * SL + 0.2744 * MS - 1.693
-    return (wstf1, wstf2, wstf3, wstf4)
 
 def compute_reading_ease_indices(textData):
     """Traverse textData and compute all
@@ -315,20 +301,20 @@ def compute_reading_ease_indices(textData):
                 words_with_only_one_syllable += 1
 
     # Compute Flesch-Reading-Ease
-    fre = compute_flesch_reading_ease(asl=asl, asw=asw)
-    frea = assess_flesch_reading_ease(fre)
+    fre = readability.compute_flesch_reading_ease(asl=asl, asw=asw)
+    frea = readability.assess_flesch_reading_ease(fre)
 
     # Flesch-Kincaid Grade Level
-    fkgl = compute_flesch_kincaid_grade_level(asl=asl, asw=asw)
+    fkgl = readability.compute_flesch_kincaid_grade_level(asl=asl, asw=asw)
 
     # Compute Gunning-Fog Index
-    gfi = compute_gunning_fog_index(w=wordCount, s=sentenceCount, d=words_with_at_least_3_syllables)
+    gfi = readability.compute_gunning_fog_index(w=wordCount, s=sentenceCount, d=words_with_at_least_3_syllables)
 
     # Compute Wiener Sachtextformel
     ms = (wordCount / words_with_at_least_3_syllables) if words_with_at_least_3_syllables != 0 else 0.0
     iw = (wordCount / words_with_at_least_6_letters) if words_with_at_least_6_letters != 0 else 0.0
     es = (wordCount / words_with_only_one_syllable) if words_with_only_one_syllable != 0 else 0.0
-    (wsf1, wsf2, wsf3, wsf4) = compute_wiener_sachtextformel(MS=ms, SL=asl, IW=iw, ES=es)
+    (wsf1, wsf2, wsf3, wsf4) = readability.compute_wiener_sachtextformel(MS=ms, SL=asl, IW=iw, ES=es)
 
     # All results go into the dict
     resultDict = {
@@ -352,6 +338,50 @@ def compute_reading_ease_indices(textData):
 # Process / flow
 #
 ####################################
+
+# TODO
+def merge_textdata(textData, globalTextData):
+    """Merge textData into globalTextData,
+    adding up to global data
+    """
+    pass
+
+# TODO
+def merge_wordtable(wordTable, globalWordTable):
+    """Merge wordTable into globalWordTable,
+    adding up to global data
+    """
+    # Iterate word table
+    # Update counts
+    for word,valueDict in wordTable['words'].iteritems():
+        wordCount = valueDict['count']
+
+        newCount = int(globalWordTable.get(word, {}).get('count', 0) + wordCount)
+        globalWordTable[word] = {
+            'count' : newCount,
+            'frequency' : float(0.0)
+        }
+
+    # Compute relative frequencies
+    compute_wordfrequencies(globalWordTable)
+
+
+# TODO
+def compute_wordfrequencies(wordTable):
+    """Compute relative frequencies in an existing word table
+    """
+    # First get total word count
+    totalWordCount = 0
+    for word, valueDict in wordTable.iteritems():
+        totalWordCount += valueDict.get('count', 0)
+
+    for word, valueDict in wordTable.iteritems():
+        count = valueDict['count']
+        wordTable[word] = {
+            'count' : count,
+            'frequency' : float(count) / float(totalWordCount)
+        }
+
 
 def process_text(text):
     """Perform all the analyses for a complete text
@@ -406,6 +436,10 @@ def process_file(filePath):
     write_csv(wordTable, wordTableFilePath)
     print('')
 
+    # Return data
+    return (textData, wordTable)
+
+
 def analyze(sourcePath, fileExtension='.txt'):
     """Check filePath, start processing, measure processing time
     """
@@ -424,13 +458,46 @@ def analyze(sourcePath, fileExtension='.txt'):
         # Process single file
         process_file(sourcePath)
     elif os.path.isdir(sourcePath):
+        # Tables for storing ALL data from ALL files
+        # (to build global tables after processing the files)
+        globalTextData = {}
+        globalWordTable = {}
+
         # Process files in folder
         fileCount = 0
         for file in os.listdir(sourcePath):
             if file.endswith(fileExtension):
-                process_file(os.path.join(sourcePath, file))
+                (textData, wordTable) = process_file(os.path.join(sourcePath, file))
+                merge_textdata(textData, globalTextData)
+                merge_wordtable(wordTable, globalWordTable)
+                compute_wordfrequencies(globalWordTable)
                 fileCount += 1
         multiFileMsg = str(fileCount) + ' files '
+
+        # Export paths
+        print('Building global tables...')
+        absPath = os.path.normpath(os.path.abspath(sourcePath))
+        pathName = os.path.basename(absPath)
+        globalMetadataFilePath = os.path.join(absPath, '_' + pathName + FILESUFFIX_JSON)
+        globalWordTableFilePath = os.path.join(absPath, '_' + pathName + FILESUFFIX_CSV)
+        print('Export global metadata  : ' + globalMetadataFilePath)
+        print('Export global word table: ' + globalWordTableFilePath)
+
+        finalGlobalWordTable = {
+            '_meta' : {
+                'Folder' : absPath,
+                'Date of analysis' : get_datetime_now()
+            },
+            'words' : globalWordTable
+        }
+
+        # Write result files
+        print('Writing global JSON metadata file...')
+        write_json(globalTextData, globalMetadataFilePath)
+        print('Writing global word count CSV table file...')
+        write_csv(finalGlobalWordTable, globalWordTableFilePath)
+        print('')
+
     else:
         print('That is weird. It seems to be neither a file nor a folder...')
 
