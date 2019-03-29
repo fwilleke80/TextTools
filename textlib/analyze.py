@@ -127,7 +127,11 @@ def compute_metadata(textData):
     totalWordCountPerText = 0
     totalCharCountPerText = 0
     totalPunctuationCountPerText = 0
-    maxPunctuationCountPerSentence = 0
+    totalMaxPunctuationCountPerSentence = 0
+    totalMaxPunctuationCountPerSentence_sentence = ''
+    maxWordCountPerSentence = 0
+    totalMaxSyllableCountPerWord = 0
+    totalMaxSyllableCountPerWord_word = ''
 
     # Iterate sentences
     for sentence in textData['sentences']:
@@ -135,6 +139,8 @@ def compute_metadata(textData):
         # Total counters for whole sentence
         totalSyllableCountPerSentence = 0
         totalCharCountPerSentence = 0
+        maxSyllableCountPerWord = 0
+        maxSyllableCountPerWord_word = ''
 
         # Iterate words
         for word in sentence['words']:
@@ -150,12 +156,22 @@ def compute_metadata(textData):
             word['charCount'] = charCount
             word['averageSyllableLength'] = round(float(charCount) / float(syllableCount), DIGITS)
             totalSyllableCountPerSentence += syllableCount
+            # Sentence-local max syllable count
+            if syllableCount > maxSyllableCountPerWord:
+                maxSyllableCountPerWord = syllableCount
+                maxSyllableCountPerWord_word = word['word']
+            # Total max syllable count
+            if syllableCount > totalMaxSyllableCountPerWord:
+                totalMaxSyllableCountPerWord = syllableCount
+                totalMaxSyllableCountPerWord_word = word['word']
             totalCharCountPerSentence += charCount
 
         # Punctuation count
         punctuationCount = count_punctuation(sentence['sentence'])
         sentence['punctuationCount'] = punctuationCount
-        maxPunctuationCountPerSentence = max(maxPunctuationCountPerSentence, punctuationCount)
+        if punctuationCount > totalMaxPunctuationCountPerSentence:
+            totalMaxPunctuationCountPerSentence = punctuationCount
+            totalMaxPunctuationCountPerSentence_sentence = sentence['sentence']
         totalPunctuationCountPerText += punctuationCount
 
         # Char count
@@ -164,12 +180,16 @@ def compute_metadata(textData):
         # Word count
         wordCount = len(sentence['words'])
         sentence['wordCount'] = wordCount
+        if wordCount > maxWordCountPerSentence:
+            maxWordCountPerSentence = wordCount
+            maxWordCountPerSentence_sentence = sentence['sentence']
         totalWordCountPerText += wordCount
 
         # Syllables
         sentence['averageSyllablesPerWord'] = round(float(totalSyllableCountPerSentence) / float(wordCount), DIGITS)
         sentence['averageSyllableLength'] = round(float(totalCharCountPerSentence) / float(totalSyllableCountPerSentence), DIGITS)
         totalSyllableCountPerText += totalSyllableCountPerSentence
+        sentence['maxSyllableCountPerWord'] = { 'word' : maxSyllableCountPerWord_word, 'count' : maxSyllableCountPerWord }
 
         # Word length
         sentence['averageWordLength'] = round(float(totalCharCountPerSentence) / float(wordCount), DIGITS)
@@ -180,7 +200,9 @@ def compute_metadata(textData):
     textData['wordCount'] = totalWordCountPerText
     textData['charCount'] = totalCharCountPerText
     textData['punctuationCount'] = totalPunctuationCountPerText
-    textData['maxPunctuationCountPerSentence'] = maxPunctuationCountPerSentence
+    textData['maxPunctuationCountPerSentence'] = { 'sentence' : totalMaxPunctuationCountPerSentence_sentence, 'count' : totalMaxPunctuationCountPerSentence }
+    textData['maxWordCountPerSentence'] = { 'sentence' : maxWordCountPerSentence_sentence, 'count' : maxWordCountPerSentence }
+    textData['maxSyllableCountPerWord'] = { 'word' : totalMaxSyllableCountPerWord_word, 'count' : totalMaxSyllableCountPerWord }
     textData['averageWordsPerSentence'] = round(float(totalWordCountPerText) / float(sentenceCount), DIGITS)
     textData['averageSyllablesPerWord'] = round(float(totalSyllableCountPerText) / float(totalWordCountPerText), DIGITS)
     textData['averageSyllableLength'] = round(float(totalSyllableCountPerText) / float(totalCharCountPerText), DIGITS)
@@ -360,14 +382,14 @@ def compute_wordfrequencies(wordTable):
         }
 
 
-def process_text(text):
+def process_text(text, lang='de_DE'):
     """Perform all the analyses for a complete text
     Return textData and wordTable as a tuple
     """
 
     # Tokenize
     print('Tokenizing text...')
-    textData = tokenize.tokenize_text(unicode(text))
+    textData = tokenize.tokenize_text(unicode(text), lang=lang)
 
     # Analyze
     print('Computing metadata...')
@@ -381,7 +403,7 @@ def process_text(text):
 
     return (textData, wordTable)
 
-def process_file(filePath):
+def process_file(filePath, lang='de_DE'):
     """Load a file, process it, and write the result files
     """
     # Export paths
@@ -397,7 +419,7 @@ def process_file(filePath):
     text = read_text_file(filePath).decode('utf-8')
 
     # Process text file
-    (textData, wordTable) = process_text(text)
+    (textData, wordTable) = process_text(text, lang=lang)
 
 
     # Insert headers
@@ -417,7 +439,7 @@ def process_file(filePath):
     return (textData, wordTable)
 
 
-def analyze(sourcePath, fileExtension='.txt'):
+def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
     """Check filePath, start processing, measure processing time
     """
     # Check file path
@@ -433,7 +455,7 @@ def analyze(sourcePath, fileExtension='.txt'):
     multiFileMsg = ''
     if os.path.isfile(sourcePath):
         # Process single file
-        process_file(sourcePath)
+        process_file(sourcePath, lang=lang)
     elif os.path.isdir(sourcePath):
         # Tables for storing ALL data from ALL files
         # (to build global tables after processing the files)

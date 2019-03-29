@@ -19,7 +19,7 @@ def is_alphanumeric(s):
     return True
 
 
-def tokenize_text(text):
+def tokenize_text(text, lang='de_DE'):
     """Tokenize an entire text.
 
     The text will be split into sentences.
@@ -33,8 +33,8 @@ def tokenize_text(text):
     # Hyphenator class instance
     global hyphenator
     if hyphenator is None:
-        print('Initializing Hyphenator...')
-        hyphenator = Hyphenator('de_DE')
+        print('Initializing Hyphenator (' + lang + ')...')
+        hyphenator = Hyphenator(lang)
 
     # List of data sets for each sentence in this text
     sentenceDataList = []
