@@ -12,7 +12,9 @@ This option will start an analysis of one or multiple text files. As a parameter
 The input text(s) will get the following treatments:
 
 * **Tokenization**  
-Texts will be split up into sentences, the sentences into words, and the words into syllables (hyphenization). All tokens will be included in the .json file.
+Texts will be split up into sentences, the sentences into words, and the words into syllables (hyphenization). All tokens will be included in the .json file. Tokenization is language-dependent.
+
+  *Note: The first time a language is used, the hyphenator will download the relevant corpora from the internet. Data stored by PyHyphen and NLTK can add up to around 400 MB per language, depending on quality of support.*
 
 * **Counts**  
 Letters and syllables per word will be counted, as well as words per sentence, punctuation per sentence, and sentences per text. All counts will be included in the .json file.
