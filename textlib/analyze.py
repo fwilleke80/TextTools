@@ -561,7 +561,7 @@ def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
                 else:
                     # Metadata does not exist or is outdated. Analyze file.
                     print('Analyzing ' + shorten_filename(filename) + '...')
-                    (textData, wordTable) = process_file(filename)
+                    (textData, wordTable) = process_file(filename, lang=lang)
                     merge_textdata(textData, globalTextData)
                     merge_wordtable(wordTable, globalWordTable)
                     compute_wordfrequencies(globalWordTable)
