@@ -5,7 +5,7 @@ import csv, json
 import time, datetime
 import operator
 import string
-from textlib import tokenize,readability,filehash
+from textlib import tokenize,readability,hashes
 
 
 ####################################
@@ -185,7 +185,7 @@ def compute_metadata(textData):
             charCount = len(word['word'])
             word['syllableCount'] = syllableCount
             word['charCount'] = charCount
-            word['crc32'] = filehash.get_string_crc32(word['word'].encode('utf-8'))
+            word['crc32'] = hashes.get_string_crc32(word['word'].encode('utf-8'))
             word['averageSyllableLength'] = round(float(charCount) / float(syllableCount), DIGITS)
             totalSyllableCountPerSentence += syllableCount
             # Sentence-local max syllable count
@@ -199,7 +199,7 @@ def compute_metadata(textData):
             totalCharCountPerSentence += charCount
 
         # CRC32 checksum
-        sentence['crc32'] = filehash.get_string_crc32(sentence['sentence'].encode('utf-8'))
+        sentence['crc32'] = hashes.get_string_crc32(sentence['sentence'].encode('utf-8'))
 
         # Punctuation count
         punctuationCount = count_punctuation(sentence['sentence'])
@@ -252,8 +252,8 @@ def metadata_header(filename, text):
 
     meta = {
         'Filename' : shorten_filename(filename),
-        'MD5' : filehash.get_file_md5(filename),
-        'CRC32' : filehash.get_file_crc32(filename),
+        'MD5' : hashes.get_file_md5(filename),
+        'CRC32' : hashes.get_file_crc32(filename),
         'Date of analysis' : nowStr,
         'analyze_version' : ANALYZE_VERSION
     }
@@ -394,8 +394,8 @@ def already_analyzed(filename):
         return False
 
     # Compute checksums for text file
-    checksumCrc32 = filehash.get_file_crc32(filename)
-    checksumMd5 = filehash.get_file_md5(filename)
+    checksumCrc32 = hashes.get_file_crc32(filename)
+    checksumMd5 = hashes.get_file_md5(filename)
 
     # Compare
     if metadata['CRC32'] != checksumCrc32:
