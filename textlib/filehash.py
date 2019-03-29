@@ -22,3 +22,8 @@ def get_file_md5(filename):
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
+
+def get_string_crc32(text):
+    """Compute CRC32 checksum from a string
+    """
+    return hex(zlib.crc32(text) & 0xffffffff)

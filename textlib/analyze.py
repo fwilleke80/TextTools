@@ -14,6 +14,9 @@ from textlib import tokenize,readability,filehash
 #
 ####################################
 
+# Analyze code version identifier
+ANALYZE_VERSION = '1.0.0'
+
 # Suffix added to metadata filenames
 FILESUFFIX_JSON = '_metadata.json'
 
@@ -41,6 +44,16 @@ def get_datetime_now(dtFormat = '%Y-%m-%d %H:%M'):
 #
 ####################################
 
+def count_files(path, extension):
+    """Count files in a folder that match a certain file extension
+    """
+    count = 0
+    for file in os.listdir(path):
+        if file.endswith(extension):
+            count += 1
+    return count
+
+
 def shorten_filename(full_path):
     """Takes a path and returns only the
     last part of it (e.g. name of the file)
@@ -54,6 +67,24 @@ def read_text_file(filePath):
     with open(filePath, 'rb') as textFile:
         text = textFile.read()
     return text
+
+def make_metadata_filename(filename):
+    """From the .txt file's original filename & path,
+    create the filename & path of the metadata .json file
+    """
+    fileBasePath = os.path.splitext(filename)[0]
+    return os.path.join(fileBasePath + FILESUFFIX_JSON)
+
+def make_wordtable_filename(filename):
+    """From the .txt file's original filename & path,
+    create the filename & path of the word count .csv table file
+    """
+    fileBasePath = os.path.splitext(filename)[0]
+    return os.path.join(fileBasePath + FILESUFFIX_CSV)
+
+def load_json(filename):
+    with open(filename, 'rb') as jsonFile:
+        return json.load(jsonFile)
 
 def write_json(data, filename):
     """Export data as structured JSON file
@@ -154,24 +185,28 @@ def compute_metadata(textData):
             charCount = len(word['word'])
             word['syllableCount'] = syllableCount
             word['charCount'] = charCount
+            word['crc32'] = filehash.get_string_crc32(word['word'].encode('utf-8'))
             word['averageSyllableLength'] = round(float(charCount) / float(syllableCount), DIGITS)
             totalSyllableCountPerSentence += syllableCount
             # Sentence-local max syllable count
             if syllableCount > maxSyllableCountPerWord:
                 maxSyllableCountPerWord = syllableCount
-                maxSyllableCountPerWord_word = word['word']
+                maxSyllableCountPerWord_word = word['crc32']
             # Total max syllable count
             if syllableCount > totalMaxSyllableCountPerWord:
                 totalMaxSyllableCountPerWord = syllableCount
-                totalMaxSyllableCountPerWord_word = word['word']
+                totalMaxSyllableCountPerWord_word = word['crc32']
             totalCharCountPerSentence += charCount
+
+        # CRC32 checksum
+        sentence['crc32'] = filehash.get_string_crc32(sentence['sentence'].encode('utf-8'))
 
         # Punctuation count
         punctuationCount = count_punctuation(sentence['sentence'])
         sentence['punctuationCount'] = punctuationCount
         if punctuationCount > totalMaxPunctuationCountPerSentence:
             totalMaxPunctuationCountPerSentence = punctuationCount
-            totalMaxPunctuationCountPerSentence_sentence = sentence['sentence']
+            totalMaxPunctuationCountPerSentence_sentence = sentence['crc32']
         totalPunctuationCountPerText += punctuationCount
 
         # Char count
@@ -182,7 +217,7 @@ def compute_metadata(textData):
         sentence['wordCount'] = wordCount
         if wordCount > maxWordCountPerSentence:
             maxWordCountPerSentence = wordCount
-            maxWordCountPerSentence_sentence = sentence['sentence']
+            maxWordCountPerSentence_sentence = sentence['crc32']
         totalWordCountPerText += wordCount
 
         # Syllables
@@ -219,7 +254,8 @@ def metadata_header(filename, text):
         'Filename' : shorten_filename(filename),
         'MD5' : filehash.get_file_md5(filename),
         'CRC32' : filehash.get_file_crc32(filename),
-        'Date of analysis' : nowStr
+        'Date of analysis' : nowStr,
+        'analyze_version' : ANALYZE_VERSION
     }
 
     return meta
@@ -338,34 +374,42 @@ def compute_reading_ease_indices(textData):
 #
 ####################################
 
-# TODO
-def merge_textdata(textData, globalTextData):
-    """Merge textData into globalTextData,
-    adding up to global data
+def already_analyzed(filename):
+    """Check header of .json file to find out if we need
+    to analyze the referred text file again. This is done
+    by checking the MD5 and CRC32 checksums in the header
+    against freshly computed checksums of the file, and
+    also checking the analyze_version in the header against
+    the current one in the code.
+
+    Return False if a fresh analysis is required, otherwise True
     """
-    pass
 
-# TODO
-def merge_wordtable(wordTable, globalWordTable):
-    """Merge wordTable into globalWordTable,
-    adding up to global data
-    """
-    # Iterate word table
-    # Update counts
-    for word,valueDict in wordTable['words'].iteritems():
-        wordCount = valueDict['count']
+    # Open metadata .json file
+    metadataFilePath = make_metadata_filename(filename)
+    try:
+        metadata = load_json(metadataFilePath)['_meta']
+    except:
+        #print('Could not load metadata for ' + shorten_filename(filename) + '.')
+        return False
 
-        newCount = int(globalWordTable.get(word, {}).get('count', 0) + wordCount)
-        globalWordTable[word] = {
-            'count' : newCount,
-            'frequency' : float(0.0)
-        }
+    # Compute checksums for text file
+    checksumCrc32 = filehash.get_file_crc32(filename)
+    checksumMd5 = filehash.get_file_md5(filename)
 
-    # Compute relative frequencies
-    compute_wordfrequencies(globalWordTable)
+    # Compare
+    if metadata['CRC32'] != checksumCrc32:
+        print('CRC32 differs: ' + metadata['CRC32'] + ' in metadata vs. ' + checksumCrc32 + ' from actual file.')
+        return False
+    if metadata['MD5'] != checksumMd5:
+        print('MD5 differs: ' + metadata['MD5'] + ' in metadata vs. ' + checksumMd5 + ' from actual file.')
+        return False
+    if metadata['analyze_version'] != ANALYZE_VERSION:
+        print('Analyze_version differs: ' + metadata['analyze_version'] + ' in metadata vs. ' + ANALYZE_VERSION + ' in program code.')
+        return False
 
+    return True
 
-# TODO
 def compute_wordfrequencies(wordTable):
     """Compute relative frequencies in an existing word table
     """
@@ -381,6 +425,32 @@ def compute_wordfrequencies(wordTable):
             'frequency' : float(count) / float(totalWordCount)
         }
 
+# TODO
+def merge_textdata(textData, globalTextData):
+    """Merge textData into globalTextData,
+    adding up to global data
+    """
+    print('Merging textData dictionaries...')
+    pass
+
+def merge_wordtable(wordTable, globalWordTable):
+    """Merge wordTable into globalWordTable,
+    adding up to global data
+    """
+    # Iterate word table
+    # Update counts
+    print('Merging wordTable dictionaries...')
+    for word,valueDict in wordTable['words'].iteritems():
+        wordCount = valueDict['count']
+
+        newCount = int(globalWordTable.get(word, {}).get('count', 0) + wordCount)
+        globalWordTable[word] = {
+            'count' : newCount,
+            'frequency' : float(0.0)
+        }
+
+    # Compute relative frequencies
+    compute_wordfrequencies(globalWordTable)
 
 def process_text(text, lang='de_DE'):
     """Perform all the analyses for a complete text
@@ -407,9 +477,8 @@ def process_file(filePath, lang='de_DE'):
     """Load a file, process it, and write the result files
     """
     # Export paths
-    fileBasePath = os.path.splitext(filePath)[0]
-    metadataFilePath = os.path.join(fileBasePath + FILESUFFIX_JSON)
-    wordTableFilePath = os.path.join(fileBasePath + FILESUFFIX_CSV)
+    metadataFilePath = make_metadata_filename(filePath)
+    wordTableFilePath = make_wordtable_filename(filePath)
     print('Import text file : ' + filePath)
     print('Export metadata  : ' + metadataFilePath)
     print('Export word table: ' + wordTableFilePath)
@@ -433,7 +502,6 @@ def process_file(filePath, lang='de_DE'):
     write_json(textData, metadataFilePath)
     print('Writing word count CSV table file...')
     write_csv(wordTable, wordTableFilePath)
-    print('')
 
     # Return data
     return (textData, wordTable)
@@ -442,6 +510,9 @@ def process_file(filePath, lang='de_DE'):
 def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
     """Check filePath, start processing, measure processing time
     """
+    print('Analyze version: ' + ANALYZE_VERSION)
+    print('')
+
     # Check file path
     if sourcePath is None or len(sourcePath) == 0:
         sys.exit('ERROR: No path to text file provided!')
@@ -464,38 +535,54 @@ def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
 
         # Process files in folder
         fileCount = 0
+        filesInFolder = count_files(sourcePath, fileExtension)
         for file in os.listdir(sourcePath):
             if file.endswith(fileExtension):
-                (textData, wordTable) = process_file(os.path.join(sourcePath, file))
-                merge_textdata(textData, globalTextData)
-                merge_wordtable(wordTable, globalWordTable)
-                compute_wordfrequencies(globalWordTable)
-                fileCount += 1
-        multiFileMsg = str(fileCount) + ' files '
+                filename = os.path.join(sourcePath, file)
+                # Check if we need to analyze this file
+                if already_analyzed(filename):
+                    # Metadata is up to date. Just load it and merge for the global table
+                    print(shorten_filename(filename) + ' metadata is up to date. Skipping analysis.')
+
+                    # Load existing metadata file and merge (to update global data)
+                    textData = load_json(make_metadata_filename(filename))
+                    merge_textdata(textData, globalTextData)
+                    # TODO: Update global word table, too
+                else:
+                    # Metadata does not exist or is outdated. Analyze file.
+                    print('Analyzing ' + shorten_filename(filename) + '...')
+                    (textData, wordTable) = process_file(filename)
+                    merge_textdata(textData, globalTextData)
+                    merge_wordtable(wordTable, globalWordTable)
+                    compute_wordfrequencies(globalWordTable)
+                    fileCount += 1
+                print('')
+        multiFileMsg = str(fileCount) + ' of ' + str(filesInFolder) + ' files '
 
         # Export paths
-        print('Building global tables...')
-        absPath = os.path.normpath(os.path.abspath(sourcePath))
-        pathName = os.path.basename(absPath)
-        globalMetadataFilePath = os.path.join(absPath, '_' + pathName + FILESUFFIX_JSON)
-        globalWordTableFilePath = os.path.join(absPath, '_' + pathName + FILESUFFIX_CSV)
-        print('Export global metadata  : ' + globalMetadataFilePath)
-        print('Export global word table: ' + globalWordTableFilePath)
+        if fileCount > 0:
+            print('Building global tables...')
+            absPath = os.path.normpath(os.path.abspath(sourcePath))
+            pathName = os.path.basename(absPath)
+            globalMetadataFilePath = os.path.join(absPath, '_' + pathName + FILESUFFIX_JSON)
+            globalWordTableFilePath = os.path.join(absPath, '_' + pathName + FILESUFFIX_CSV)
+            print('Export global metadata  : ' + globalMetadataFilePath)
+            print('Export global word table: ' + globalWordTableFilePath)
 
-        finalGlobalWordTable = {
-            '_meta' : {
-                'Folder' : absPath,
-                'Date of analysis' : get_datetime_now()
-            },
-            'words' : globalWordTable
-        }
+            finalGlobalWordTable = {
+                '_meta' : {
+                    'Folder' : absPath,
+                    'Date of analysis' : get_datetime_now()
+                },
+                'words' : globalWordTable
+            }
 
-        # Write result files
-        print('Writing global JSON metadata file...')
-        write_json(globalTextData, globalMetadataFilePath)
-        print('Writing global word count CSV table file...')
-        write_csv(finalGlobalWordTable, globalWordTableFilePath)
-        print('')
+            # Write result files
+            print('Writing global JSON metadata file...')
+            write_json(globalTextData, globalMetadataFilePath)
+            print('Writing global word count CSV table file...')
+            write_csv(finalGlobalWordTable, globalWordTableFilePath)
+            print('')
 
     else:
         print('That is weird. It seems to be neither a file nor a folder...')
