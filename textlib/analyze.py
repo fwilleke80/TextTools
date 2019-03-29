@@ -15,7 +15,9 @@ from textlib import tokenize,readability,hashes
 ####################################
 
 # Analyze code version identifier
-ANALYZE_VERSION = '1.0.0'
+# Increase this at will, but note that it *has* to be increased
+# if anything in the analysis or meta header generation changed!
+ANALYZE_VERSION = '1.0.1'
 
 # Suffix added to metadata filenames
 FILESUFFIX_JSON = '_metadata.json'
@@ -244,7 +246,7 @@ def compute_metadata(textData):
     textData['averageWordLength'] = round(float(totalCharCountPerText) / float(totalWordCountPerText), DIGITS)
     textData['averagePunctuationPerSentence'] = round(float(totalPunctuationCountPerText) / float(sentenceCount), DIGITS)
 
-def metadata_header(filename, text):
+def metadata_header(filename, text, language):
     """Create header dataset with some basic info.
     """
     # Current date & time
@@ -255,7 +257,8 @@ def metadata_header(filename, text):
         'MD5' : hashes.get_file_md5(filename),
         'CRC32' : hashes.get_file_crc32(filename),
         'Date of analysis' : nowStr,
-        'analyze_version' : ANALYZE_VERSION
+        'analyze_version' : ANALYZE_VERSION,
+        'language' : language
     }
 
     return meta
@@ -374,7 +377,7 @@ def compute_reading_ease_indices(textData):
 #
 ####################################
 
-def already_analyzed(filename):
+def metadata_is_uptodate(filename, language):
     """Check header of .json file to find out if we need
     to analyze the referred text file again. This is done
     by checking the MD5 and CRC32 checksums in the header
@@ -398,14 +401,21 @@ def already_analyzed(filename):
     checksumMd5 = hashes.get_file_md5(filename)
 
     # Compare
-    if metadata['CRC32'] != checksumCrc32:
-        print('CRC32 differs: ' + metadata['CRC32'] + ' in metadata vs. ' + checksumCrc32 + ' from actual file.')
-        return False
-    if metadata['MD5'] != checksumMd5:
-        print('MD5 differs: ' + metadata['MD5'] + ' in metadata vs. ' + checksumMd5 + ' from actual file.')
-        return False
-    if metadata['analyze_version'] != ANALYZE_VERSION:
-        print('Analyze_version differs: ' + metadata['analyze_version'] + ' in metadata vs. ' + ANALYZE_VERSION + ' in program code.')
+    try:
+        if metadata['CRC32'] != checksumCrc32:
+            print('CRC32 differs: ' + metadata['CRC32'] + ' in metadata vs. ' + checksumCrc32 + ' from actual file.')
+            return False
+        if metadata['MD5'] != checksumMd5:
+            print('MD5 differs: ' + metadata['MD5'] + ' in metadata vs. ' + checksumMd5 + ' from actual file.')
+            return False
+        if metadata['analyze_version'] != ANALYZE_VERSION:
+            print('Analyze_version differs: ' + metadata['analyze_version'] + ' in metadata vs. ' + ANALYZE_VERSION + ' in program code.')
+            return False
+        if metadata['language'] != language:
+            print('Language differs: ' + metadata['language'] + ' in metadata vs. current ' + language)
+            return False
+    except:
+        print('Metadata header is missing or incomplete!')
         return False
 
     return True
@@ -493,7 +503,7 @@ def process_file(filePath, lang='de_DE'):
 
     # Insert headers
     print('Inserting meta headers...')
-    metaheader = metadata_header(filePath, text)
+    metaheader = metadata_header(filePath, text, language=lang)
     textData['_meta'] = metaheader
     wordTable['_meta'] = metaheader
 
@@ -540,7 +550,7 @@ def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
             if file.endswith(fileExtension):
                 filename = os.path.join(sourcePath, file)
                 # Check if we need to analyze this file
-                if already_analyzed(filename):
+                if metadata_is_uptodate(filename, language=lang):
                     # Metadata is up to date. Just load it and merge for the global table
                     print(shorten_filename(filename) + ' metadata is up to date. Skipping analysis.')
 
