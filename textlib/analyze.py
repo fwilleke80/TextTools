@@ -387,6 +387,7 @@ def metadata_is_uptodate(filename, language):
 
     Return False if a fresh analysis is required, otherwise True
     """
+    print('Checking ' + filename + '...')
 
     # Open metadata .json file
     metadataFilePath = make_metadata_filename(filename)
@@ -552,12 +553,14 @@ def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
                 # Check if we need to analyze this file
                 if metadata_is_uptodate(filename, language=lang):
                     # Metadata is up to date. Just load it and merge for the global table
-                    print(shorten_filename(filename) + ' metadata is up to date. Skipping analysis.')
+                    print('Metadata is up to date. Skipping analysis.')
 
                     # Load existing metadata file and merge (to update global data)
                     textData = load_json(make_metadata_filename(filename))
                     merge_textdata(textData, globalTextData)
                     # TODO: Update global word table, too
+                    # merge_wordtable(wordTable, globalWordTable)
+                    # compute_wordfrequencies(globalWordTable)
                 else:
                     # Metadata does not exist or is outdated. Analyze file.
                     print('Analyzing ' + shorten_filename(filename) + '...')
