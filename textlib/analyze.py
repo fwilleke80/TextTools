@@ -441,7 +441,7 @@ def merge_textdata(textData, globalTextData):
     """Merge textData into globalTextData,
     adding up to global data
     """
-    print('Merging textData dictionaries...')
+    print('Merging global textData dictionaries...')
     pass
 
 def merge_wordtable(wordTable, globalWordTable):
@@ -450,7 +450,7 @@ def merge_wordtable(wordTable, globalWordTable):
     """
     # Iterate word table
     # Update counts
-    print('Merging wordTable dictionaries...')
+    print('Merging global wordTable dictionaries...')
     for word,valueDict in wordTable['words'].iteritems():
         wordCount = valueDict['count']
 
