@@ -71,16 +71,9 @@ class CommonSenseMatrix():
         self.resultTable = None
 
     
-    def evaluate(self, args):
+    def learn(self, sourceFolder):
         """
         """
-        pass
-
-
-    def learn(self, args):
-        """
-        """
-        sourceFolder = args[0]
 
         if not os.path.isdir(sourceFolder):
             print('ERROR: "' + sourceFolder + '" is not a valid folder!')
@@ -120,13 +113,19 @@ class CommonSenseMatrix():
         except:
             print('ERROR: Could not sort word data!')
             return False
-        print('')
-        print(str(sortedWordData))
+        # print('')
+        # print(str(sortedWordData))
 
         # Store sortedWordData as JSON
         fileoperations.write_json(sortedWordData, os.path.join(sourceFolder, "_" + os.path.basename(sourceFolder) + '_csm.json'))
 
         return True
+
+
+    def evaluate(self, args):
+        """
+        """
+        pass
 
     #
     # Static members
@@ -137,6 +136,7 @@ class CommonSenseMatrix():
         """
         """
         pass
+
 
     @staticmethod
     def write_csm(filePath, csm):
