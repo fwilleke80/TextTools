@@ -76,6 +76,7 @@ class CommonSenseMatrix():
         """
         pass
 
+
     def learn(self, args):
         """
         """
@@ -121,6 +122,9 @@ class CommonSenseMatrix():
             return False
         print('')
         print(str(sortedWordData))
+
+        # Store sortedWordData as JSON
+        fileoperations.write_json(sortedWordData, os.path.join(sourceFolder, "_" + os.path.basename(sourceFolder) + '_csm.json'))
 
         return True
 
