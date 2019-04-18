@@ -2,11 +2,18 @@
 A command line tool, written in Python, that allows analyze a text, and generate metadata from it. That metadata is detailed attributes of the completely tokenised text: syllables, words, sentences and punctuation with their counts and frequencies, as well as reading ease assessments.
 
 ## Usage
+General:  
+`python texttool.py PATH --option1 --option2 argument`
+
+Examples:  
+`python texttool.py /Users/somebody/Desktop/texts --analyze --force --csm learn`  
+  This will force (re-)analysis of the folder and then start a Common Sense Matrix learn session.
+
 ### Analyze
 This option will start an analysis of one or multiple text files. As a parameter, use either the full absolute path to a file or a folder.
 
-`python texttool.py --analyze /Users/somebody/Desktop/texts/some_text.txt`  
-`python texttool.py --analyze /Users/somebody/Desktop/texts/texts`
+`python texttool.py /Users/somebody/Desktop/texts/some_text.txt --analyze`  
+`python texttool.py /Users/somebody/Desktop/texts --analyze`
 
 #### Analyzed properties
 The input text(s) will get the following treatments:
@@ -32,6 +39,21 @@ A number of readability indices are computed, too, from the created metadata. Th
     * Flesch-Kincaid Grade Level (US)
     * Gunning-Fog Index (US)
     * Wiener Sachtextformel (DE) (1st, 2nd, 3rd, 4th)
+
+### Common Sense Matrix
+Blah, blah, blah
+
+#### What is it?
+Blah, blah, blah
+
+#### How is it used?
+Blah, blah, blah
+
+##### Learn
+Blah, blah, blah
+
+##### Evaluate
+Blah, blah, blah
 
 ### Fun
 A fun module to play around with words. Currently, it only does some test stuff.
