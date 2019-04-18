@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 import os
+import operator
 from textlib import analyze, fileoperations
 
 ####################################
@@ -29,6 +30,32 @@ evaluate a text file specified by the path ANALYZEFILE against it.
 --csm help
 Displays this help text.
 """
+
+
+def wordtable_csv_to_worddata(wordTable):
+    """Transform the rows of a word table to
+    a Dict that associates words with their counts
+    """
+    wordBasedData = {}
+    for word, wordCount, wordFrequency in zip(wordTable['Word'], wordTable['Count'], wordTable['Frequency']):
+        wordBasedData[word] = {
+            'count': wordCount#,
+            #'frequency' : wordFrequency
+        }
+    return wordBasedData
+
+
+def add_worddata(baseData, addData):
+    """Merge two word data dicts, summing their values
+    """
+    for word, value in addData.iteritems():
+        newCount = baseData.get(word, 0) + int(value['count'])
+        baseData[word] = newCount
+
+
+def worddata_to_sorted(wordData, descending=False):
+    sortedList = sorted(wordData.items(), key=operator.itemgetter(1))
+    return sortedList if not descending else list(reversed(sortedList))
 
 
 class CommonSenseMatrix():
@@ -62,6 +89,7 @@ class CommonSenseMatrix():
         fileCount = 0
         inputFileSuffix = '_wordfrequencies.csv'
         filesInFolder = fileoperations.count_files(sourceFolder, inputFileSuffix)
+        totalWordData = {}
         print('Learning from data in ' + sourceFolder + '...')
         for file in os.listdir(sourceFolder):
             if (not file.startswith('_')) and file.endswith(inputFileSuffix):
@@ -70,9 +98,31 @@ class CommonSenseMatrix():
                 try:
                     wordTable = fileoperations.load_csv(filename, delimiter=',', quotechar='"', firstColumnAsTitle=True, minimumRowLength=3)
                 except:
-                    print('Could not load word table from ' + fileoperations.shorten_filename(filename) + '.')
+                    print('ERROR: Could not load word table from ' +
+                          fileoperations.shorten_filename(filename) + '!')
                     return False
+                try:
+                    wordData = wordtable_csv_to_worddata(wordTable)
+                except:
+                    print('ERROR: Could not transform word table to word data!')
+                    return False
+                try:
+                    add_worddata(totalWordData, wordData)
+                except:
+                    print('ERROR: Could not merge word data')
+                    return False
+                #print(str(wordData))
+                #print('')
                 print('Word table loaded from ' + filename)
+        try:
+            sortedWordData = worddata_to_sorted(totalWordData, descending=True)
+        except:
+            print('ERROR: Could not sort word data!')
+            return False
+        print('')
+        print(str(sortedWordData))
+
+        return True
 
     #
     # Static members
