@@ -483,7 +483,7 @@ def process_file(filePath, lang='de_DE'):
     return (textData, wordTable)
 
 
-def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
+def analyze(sourcePath, fileExtension='.txt', lang='de_DE', forceAnalyze=False):
     """Check filePath, start processing, measure processing time
     """
     print('Analyze version: ' + ANALYZE_VERSION)
@@ -516,7 +516,7 @@ def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
             if file.endswith(fileExtension):
                 filename = os.path.join(sourcePath, file)
                 # Check if we need to analyze this file
-                if metadata_is_uptodate(filename, language=lang):
+                if metadata_is_uptodate(filename, language=lang) and forceAnalyze == False:
                     # Metadata is up to date. Just load it and merge for the global table
                     print('Metadata is up to date. Skipping analysis.')
 
