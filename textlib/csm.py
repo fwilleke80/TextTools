@@ -91,33 +91,37 @@ class CommonSenseMatrix():
                 # Open word table .csv file
                 try:
                     wordTable = fileoperations.load_csv(filename, delimiter=',', quotechar='"', firstColumnAsTitle=True, minimumRowLength=3)
+                    print('Word data loaded from ' + filename)
                 except:
                     print('ERROR: Could not load word table from ' +
                           fileoperations.shorten_filename(filename) + '!')
                     return False
+
+                # Transform word table (row-based plain table) to word data (word-associated counts)
                 try:
                     wordData = wordtable_csv_to_worddata(wordTable)
                 except:
                     print('ERROR: Could not transform word table to word data!')
                     return False
+
+                # Merge word data of this file into totalWordData
                 try:
                     add_worddata(totalWordData, wordData)
                 except:
                     print('ERROR: Could not merge word data')
                     return False
-                #print(str(wordData))
-                #print('')
-                print('Word table loaded from ' + filename)
+
+        # Transform totalWordData into data list, sorted descending by count
         try:
             sortedWordData = worddata_to_sorted(totalWordData, descending=True)
         except:
             print('ERROR: Could not sort word data!')
             return False
-        # print('')
-        # print(str(sortedWordData))
 
         # Store sortedWordData as JSON
-        fileoperations.write_json(sortedWordData, os.path.join(sourceFolder, "_" + os.path.basename(sourceFolder) + '_csm.json'))
+        csmFilePath = os.path.join(sourceFolder, "_" + os.path.basename(sourceFolder) + '_csm.json')
+        print('Writing Common Sense Matrix data to ' + csmFilePath + " ...")
+        CommonSenseMatrix.write_csm(csmFilePath, sortedWordData)
 
         return True
 
@@ -142,7 +146,7 @@ class CommonSenseMatrix():
     def write_csm(filePath, csm):
         """
         """
-        pass
+        fileoperations.write_json(csm, filePath)
 
 
 def start(mode, args):
