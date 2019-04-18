@@ -60,18 +60,19 @@ class CommonSenseMatrix():
 
         # Process files in folder
         fileCount = 0
-        filesInFolder = fileoperations.count_files(sourceFolder, '.txt')
+        inputFileSuffix = '_wordfrequencies.csv'
+        filesInFolder = fileoperations.count_files(sourceFolder, inputFileSuffix)
         print('Learning from data in ' + sourceFolder + '...')
         for file in os.listdir(sourceFolder):
-            if (not file.startswith('_')) and  file.endswith('_metadata.json'):
+            if (not file.startswith('_')) and file.endswith(inputFileSuffix):
                 filename = os.path.join(sourceFolder, file)
-                # Open metadata .json file
+                # Open word table .csv file
                 try:
-                    metadata = fileoperations.load_json(filename)['_meta']
+                    wordTable = fileoperations.load_csv(filename, delimiter=',', quotechar='"', firstColumnAsTitle=True, minimumRowLength=3)
                 except:
-                    print('Could not load metadata from ' + fileoperations.shorten_filename(filename) + '.')
+                    print('Could not load word table from ' + fileoperations.shorten_filename(filename) + '.')
                     return False
-                print('Metadata loaded from ' + filename)
+                print('Word table loaded from ' + filename)
 
     #
     # Static members
