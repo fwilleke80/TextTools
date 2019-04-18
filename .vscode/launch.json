@@ -5,12 +5,53 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: TextTool",
+            "name": "Python: TextTool ANALYZE",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/texttool.py",
             "console": "integratedTerminal",
-            "args": ["--csm", "learn", "test"]
+            "args": [
+                "test",
+                "--analyze"
+            ]
+        },
+        {
+            "name": "Python: TextTool ANALYZE FORCE",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--analyze",
+                "--force"
+            ]
+        },
+        {
+            "name": "Python: TextTool CSM LEARN",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--csm",
+                "learn",
+            ]
+        },
+        {
+            "name": "Python: TextTool ANALYZE FORCE CSM LEARN",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--analyze",
+                "--force",
+                "--csm",
+                "learn",
+            ]
         }
     ]
 }
