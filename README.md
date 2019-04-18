@@ -8,7 +8,7 @@ This option will start an analysis of one or multiple text files. As a parameter
 `python texttool.py --analyze /Users/somebody/Desktop/texts/some_text.txt`  
 `python texttool.py --analyze /Users/somebody/Desktop/texts/texts`
 
-### Analyzed properties
+#### Analyzed properties
 The input text(s) will get the following treatments:
 
 * **Tokenization**  
@@ -32,6 +32,12 @@ A number of readability indices are computed, too, from the created metadata. Th
     * Flesch-Kincaid Grade Level (US)
     * Gunning-Fog Index (US)
     * Wiener Sachtextformel (DE) (1st, 2nd, 3rd, 4th)
+
+### Fun
+A fun module to play around with words. Currently, it only does some test stuff.
+
+Call it like this:  
+`python texttool.py --fun "Schimmelkäse Brummbär"`
 
 ## Results
 The results will be written as companion files to the input file(s):
