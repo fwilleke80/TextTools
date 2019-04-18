@@ -19,6 +19,26 @@ def is_alphanumeric(s):
     return True
 
 
+def tokenize_sentence_to_words(sentence):
+    return nltk.word_tokenize(sentence)
+
+
+def tokenize_word_to_syllables(word, lang):
+    global hyphenator
+    if hyphenator is None:
+        print('Initializing Hyphenator (' + lang + ')...')
+        hyphenator = Hyphenator(lang)
+
+    syllables = hyphenator.syllables(word)
+
+    # Word with only one syllable need special treatment,
+    # because the hyphenator does not recognize them
+    if len(syllables) == 0:
+        syllables = [word]
+
+    return syllables
+
+
 def tokenize_text(text, lang='de_DE'):
     """Tokenize an entire text.
 
@@ -30,11 +50,6 @@ def tokenize_text(text, lang='de_DE'):
     Each "sentence" element contains the original sentence, and a list with all words in the sentence.
     Each "word" element contains the original word, and a list with all syllables in the word.
     """
-    # Hyphenator class instance
-    global hyphenator
-    if hyphenator is None:
-        print('Initializing Hyphenator (' + lang + ')...')
-        hyphenator = Hyphenator(lang)
 
     # List of data sets for each sentence in this text
     sentenceDataList = []
@@ -48,7 +63,7 @@ def tokenize_text(text, lang='de_DE'):
         wordDataList = []
 
         # Split sentence into list of words
-        words = nltk.word_tokenize(sentence)
+        words = tokenize_sentence_to_words(sentence)
 
         # Iterate words
         for word in words:
@@ -61,12 +76,7 @@ def tokenize_text(text, lang='de_DE'):
                 continue
 
             # Split word into syllables
-            syllables = hyphenator.syllables(word)
-
-            # Word with only one syllable need special treatment,
-            # because the hyphenator does not recognize them
-            if len(syllables) == 0:
-                syllables = [word]
+            syllables = tokenize_word_to_syllables(word, lang=lang)
 
             # Add to word data list
             wordData = {
