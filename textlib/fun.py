@@ -156,6 +156,25 @@ def reverse_string(s, byWord=True):
 #
 ###################
 
+def pattern_actions_to_string(pattern):
+# TODO
+    string = ''
+    for item in pattern['items']:
+        if item['action'] == 'reverse':
+            actionStr = 'R'
+        elif item['action'] == 'shuffle_syllables':
+            actionStr = 'SS('
+        elif item['action'] == 'shuffle_vowels':
+            actionStr = 'SV('
+
+        for p in item.get('pattern', []):
+            actionStr = actionStr + str(p) + ','
+
+        actionStr = actionStr[:-1] + ')'
+        string = string + actionStr + ','
+    return string
+
+
 def load_json(filename):
     with open(filename, 'rb') as jsonFile:
         return json.load(jsonFile)
@@ -171,7 +190,6 @@ def assemble_text(wordList, bySyllables):
         text = text + ' '
     return text
 
-
 def sentence_to_wordlist(sentence, lang):
     wordList = []
     words = tokenize.tokenize_sentence_to_words(sentence)
@@ -184,7 +202,6 @@ def sentence_to_wordlist(sentence, lang):
         wordList.append(wordData)
     return wordList
 
-
 def have_fun(sentence, lang='de_DE'):
     sentence = sentence.decode('utf-8')
     print(sentence)
@@ -193,7 +210,7 @@ def have_fun(sentence, lang='de_DE'):
     for pattern in patternList:
         wordList = sentence_to_wordlist(sentence, lang=lang)
         print('')
-        print('Pattern: ' + pattern['name'])
+        print('Pattern: ' + pattern['name'] + ' (' + pattern_actions_to_string(pattern) + ')')
         for patternItem in pattern['items']:
             action = patternItem['action']
             if action == 'reverse':
