@@ -134,6 +134,10 @@ def compute_metadata(textData):
     # Iterate sentences
     for sentence in textData['sentences']:
 
+        # TODO: This is zero sometimes, even though the sentence is not empty. Why?
+        if len(sentence['words']) == 0:
+            continue
+
         # Total counters for whole sentence
         totalSyllableCountPerSentence = 0
         totalCharCountPerSentence = 0
