@@ -16,6 +16,17 @@
             ]
         },
         {
+            "name": "Python: TextTool ANALYZE csm_eval_test.txt",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "csm_eval_test.txt",
+                "--analyze"
+            ]
+        },
+       {
             "name": "Python: TextTool ANALYZE FORCE",
             "type": "python",
             "request": "launch",
@@ -52,6 +63,20 @@
                 "--csm",
                 "learn",
             ]
+        },
+        {
+            "name": "Python: TextTool CSM EVALUATE",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--csm",
+                "evaluate",
+                "csm_eval_test_wordfrequencies.csv"
+            ]
         }
+
     ]
 }
