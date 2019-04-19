@@ -39,7 +39,7 @@ def main():
 
     # Common Sense Matrix
     if options.commonSense:
-        csm.start(options.commonSense, args[0])
+        csm.start(options.commonSense, args)
         doneSomething = True
         
     # Word Shuffle Fun
