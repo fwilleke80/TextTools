@@ -11,7 +11,7 @@ from textlib import analyze, fileoperations
 ####################################
 
 # Common Sense Matrix code version identifier
-CSM_VERSION = '0.0.1'
+CSM_VERSION = '0.0.2'
 
 CSM_MODES = ['help', 'learn', 'evaluate']
 
@@ -31,6 +31,8 @@ evaluate a text file specified by the path ANALYZEFILE against it.
 Displays this help text.
 """
 
+def path_to_csm_filename(folderPath):
+    return os.path.join(folderPath, "_" + os.path.basename(folderPath) + '_csm.json')
 
 def wordtable_csv_to_worddata(wordTable):
     """Transform the rows of a word table to
@@ -83,53 +85,106 @@ class CommonSenseMatrix():
         fileCount = 0
         inputFileSuffix = '_wordfrequencies.csv'
         filesInFolder = fileoperations.count_files(sourceFolder, inputFileSuffix)
-        totalWordData = {}
-        print('Learning from data in ' + sourceFolder + '...')
-        for file in os.listdir(sourceFolder):
-            if (not file.startswith('_')) and file.endswith(inputFileSuffix):
-                filename = os.path.join(sourceFolder, file)
-                # Open word table .csv file
+        if filesInFolder > 0:
+            totalWordData = {}
+            print('Learning from data in ' + sourceFolder + '...')
+            for file in os.listdir(sourceFolder):
+                if (not file.startswith('_')) and file.endswith(inputFileSuffix):
+                    filename = os.path.join(sourceFolder, file)
+                    # Open word table .csv file
+                    try:
+                        wordTable = fileoperations.load_csv(filename, delimiter=',', quotechar='"', firstColumnAsTitle=True, minimumRowLength=3)
+                        print('Word data loaded from ' + filename)
+                    except:
+                        print('ERROR: Could not load word table from ' +
+                            fileoperations.shorten_filename(filename) + '!')
+                        return False
+
+                    # Transform word table (row-based plain table) to word data (word-associated counts)
+                    try:
+                        wordData = wordtable_csv_to_worddata(wordTable)
+                    except:
+                        print('ERROR: Could not transform word table to word data!')
+                        return False
+
+                    # Merge word data of this file into totalWordData
+                    try:
+                        add_worddata(totalWordData, wordData)
+                    except:
+                        print('ERROR: Could not merge word data')
+                        return False
+
+                    fileCount += 1
+
+            if fileCount > 0:
+                # Transform totalWordData into data list, sorted descending by count
                 try:
-                    wordTable = fileoperations.load_csv(filename, delimiter=',', quotechar='"', firstColumnAsTitle=True, minimumRowLength=3)
-                    print('Word data loaded from ' + filename)
+                    sortedWordData = worddata_to_sorted(totalWordData, descending=True)
+                    print('Learned from ' + str(fileCount) + ' of ' + str(filesInFolder) + ' files.')
                 except:
-                    print('ERROR: Could not load word table from ' +
-                          fileoperations.shorten_filename(filename) + '!')
+                    print('ERROR: Could not sort word data!')
                     return False
 
-                # Transform word table (row-based plain table) to word data (word-associated counts)
-                try:
-                    wordData = wordtable_csv_to_worddata(wordTable)
-                except:
-                    print('ERROR: Could not transform word table to word data!')
-                    return False
-
-                # Merge word data of this file into totalWordData
-                try:
-                    add_worddata(totalWordData, wordData)
-                except:
-                    print('ERROR: Could not merge word data')
-                    return False
-
-        # Transform totalWordData into data list, sorted descending by count
-        try:
-            sortedWordData = worddata_to_sorted(totalWordData, descending=True)
-        except:
-            print('ERROR: Could not sort word data!')
-            return False
-
-        # Store sortedWordData as JSON
-        csmFilePath = os.path.join(sourceFolder, "_" + os.path.basename(sourceFolder) + '_csm.json')
-        print('Writing Common Sense Matrix data to ' + csmFilePath + " ...")
-        CommonSenseMatrix.write_csm(csmFilePath, sortedWordData)
+                # Store sortedWordData as JSON
+                csmFilePath = path_to_csm_filename(sourceFolder)
+                print('Writing Common Sense Matrix data to ' + csmFilePath + " ...")
+                CommonSenseMatrix.write_csm(csmFilePath, sortedWordData)
+            else:
+                print('STRANGE: Did not learn from any of the files.')
+        else:
+            print('No data found to learn from.')
+            print('The folder must contain "*_wordfrequencies.csv" files generated with the "--analyze" option.')
 
         return True
 
 
-    def evaluate(self, args):
+    def evaluate(self, sourcePath, evalPath):
         """
         """
-        pass
+
+        # Prepare source path
+        if os.path.isdir(sourcePath):
+            # It's a folder, guess the name of the CSM file
+            csmFilename = path_to_csm_filename(sourcePath)
+        elif os.path.isfile(sourcePath):
+            # It's a file, just use the path
+            csmFilename = sourcePath
+        else:
+            # Nothing found at that path
+            print('ERROR: No Commons Sense Matrix data found at "' + sourcePath + '"')
+            return False
+
+        # Prepare evaluate path
+        if os.path.isfile(evalPath):
+            # It's a file, just use the path
+            evalFilename = evalPath
+        elif os.path.isdir(evalPath):
+            # It's a folder, iterate possible files
+            print('NOTE: Using a folder as evalPath not implemented yet!')
+            return True
+        else:
+            # Nothing found at that path
+            print('ERROR: Could not find ' + evalPath)
+            return False
+
+        # Load Common Sense Matrix data
+        try:
+            csmData = CommonSenseMatrix.read_csm(csmFilename)
+            print('Common Sense Matrix data loaded from ' + csmFilename)
+        except:
+            print('ERROR: Could not load Common Sense Matrix from ' + csmFilename)
+            return False
+
+        # Open evaluate word table .csv file
+        try:
+            evalWordTable = fileoperations.load_csv(evalFilename, delimiter=',', quotechar='"', firstColumnAsTitle=True, minimumRowLength=3)
+            print('Word data loaded from ' + evalFilename)
+        except:
+            print('ERROR: Could not load word table from ' + fileoperations.shorten_filename(evalFilename) + '!')
+            return False
+
+        return True
+
 
     #
     # Static members
@@ -139,7 +194,7 @@ class CommonSenseMatrix():
     def read_csm(filePath):
         """
         """
-        pass
+        return fileoperations.load_json(filePath)
 
 
     @staticmethod
@@ -163,8 +218,8 @@ def start(mode, args):
     csm = CommonSenseMatrix()
     csm.init()
     if mode == 'learn':
-        csm.learn(args)
+        csm.learn(args[0])
         return
     elif mode == 'evaluate':
-        csm.evaluate(args)
+        csm.evaluate(args[0], args[1])
         return
