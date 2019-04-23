@@ -31,18 +31,22 @@ evaluate a text file specified by the path ANALYZEFILE against it.
 Displays this help text.
 """
 
+FILESUFFIX_RESULT = '_csm-results.csv'
+
+
 def path_to_csm_filename(folderPath):
     return os.path.join(folderPath, "_" + os.path.basename(folderPath) + '_csm.json')
+
 
 def wordtable_csv_to_worddata(wordTable):
     """Transform the rows of a word table to
     a Dict that associates words with their counts
     """
     wordBasedData = {}
-    for word, wordCount, wordFrequency in zip(wordTable['Word'], wordTable['Count'], wordTable['Frequency']):
+    for word, wordFrequency in zip(wordTable['Word'], wordTable['Frequency']):
         wordBasedData[word] = {
-            'count': wordCount#,
-            #'frequency' : wordFrequency
+            #'count': wordCount,
+            'frequency' : wordFrequency
         }
     return wordBasedData
 
@@ -51,13 +55,43 @@ def add_worddata(baseData, addData):
     """Merge two word data dicts, summing their values
     """
     for word, value in addData.iteritems():
-        newCount = baseData.get(word, 0) + int(value['count'])
+        newCount = baseData.get(word, float(0.0)) + float(value['frequency'])
         baseData[word] = newCount
 
 
 def worddata_to_sorted(wordData, descending=False):
+    """
+    """
     sortedList = sorted(wordData.items(), key=operator.itemgetter(1))
     return sortedList if not descending else list(reversed(sortedList))
+
+
+def find_frequency_in_worddata(word, wordData):
+    for wordPair in wordData:
+        if wordPair[0].lower().encode("utf-8") == word.lower():
+            return wordPair[1]
+    return 0
+
+
+def diff_worddata_tables(csmData, sortedEvalWordData):
+    """
+    """
+    diffTable = []
+
+    for wordPair in sortedEvalWordData:
+        word = wordPair[0]
+        wordFreq = wordPair[1]
+        csmWordFreq = find_frequency_in_worddata(word, csmData)
+
+        if wordFreq > csmWordFreq and csmWordFreq > 0.0:
+            diffFreq = wordFreq - csmWordFreq
+            print word, wordFreq, " > ", csmWordFreq, " ==>> ", "{:0.4}".format(diffFreq)
+            diffTable.append((word, diffFreq))
+
+    diffTable.sort(key=operator.itemgetter(1))
+    diffTable.reverse()
+
+    return diffTable
 
 
 class CommonSenseMatrix():
@@ -139,7 +173,7 @@ class CommonSenseMatrix():
 
 
     def evaluate(self, sourcePath, evalPath):
-        """
+        """Evaluate CSM data by comparing word frequencies of an exemplary text against the frequencies from the CSM file
         """
 
         # Prepare source path
@@ -183,7 +217,44 @@ class CommonSenseMatrix():
             print('ERROR: Could not load word table from ' + fileoperations.shorten_filename(evalFilename) + '!')
             return False
 
-        return True
+        # Transform word table (row-based plain table) to word data (word-associated counts)
+        try:
+            evalWordData = wordtable_csv_to_worddata(evalWordTable)
+        except:
+            print('ERROR: Could not transform word table to word data!')
+            return False
+
+        # Merge word data of this file into totalWordData
+        finalEvalWordData = {}
+        try:
+            add_worddata(finalEvalWordData, evalWordData)
+        except:
+            print('ERROR: Could not merge word data')
+            return False
+
+        # Transform totalWordData into data list, sorted descending by count
+        try:
+            sortedEvalWordData = worddata_to_sorted(finalEvalWordData, descending=True)
+        except:
+            print('ERROR: Could not sort word data!')
+            return False
+
+        try:
+            resultTable = diff_worddata_tables(csmData, sortedEvalWordData)
+        except:
+            print('ERROR: Could not diff CSM data against evaluation word data!')
+            return False
+
+        # Write resultTable
+        csmResultFilename = os.path.splitext(evalPath)[0] + FILESUFFIX_RESULT
+        wordRow = ''
+        dataRow = ''
+        with open(csmResultFilename, 'wb') as resultFile:
+            for itemIndex, item in enumerate(resultTable):
+                wordRow = wordRow + (',' if itemIndex > 0 else '') + item[0]
+                dataRow = dataRow + (',' if itemIndex > 0 else '') + "{:0.6}".format(item[1])
+            resultFile.write(wordRow + '\n')
+            resultFile.write(dataRow + '\n')
 
 
     #
