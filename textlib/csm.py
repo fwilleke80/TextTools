@@ -43,10 +43,11 @@ def wordtable_csv_to_worddata(wordTable):
     a Dict that associates words with their counts
     """
     wordBasedData = {}
-    for word, wordFrequency in zip(wordTable['Word'], wordTable['Frequency']):
+    for word, wordCount in zip(wordTable['Word'], wordTable['Count']):
+        # Take word and count value from CSV data
         wordBasedData[word] = {
-            #'count': wordCount,
-            'frequency' : wordFrequency
+            'count': wordCount#,
+            #'frequency' : wordFrequency
         }
     return wordBasedData
 
@@ -55,7 +56,7 @@ def add_worddata(baseData, addData):
     """Merge two word data dicts, summing their values
     """
     for word, value in addData.iteritems():
-        newCount = baseData.get(word, float(0.0)) + float(value['frequency'])
+        newCount = baseData.get(word, int(0)) + int(value['count'])
         baseData[word] = newCount
 
 
@@ -69,9 +70,22 @@ def worddata_to_sorted(wordData, descending=False):
 def find_frequency_in_worddata(word, wordData):
     for wordPair in wordData:
         if wordPair[0].lower().encode("utf-8") == word.lower():
-            return wordPair[1]
+            return wordPair[2]
     return 0
 
+def get_total_word_counts(wordData):
+    uniqueWordCount = len(wordData)
+    totalWordCount = 0
+    for wordPair in wordData:
+        totalWordCount += wordPair[1]
+    return (totalWordCount, uniqueWordCount)
+
+def calculate_word_frequencies(wordData, totalWordCount):
+    resultList = []
+    for wordPair in wordData:
+        wordFrequency = float(wordPair[1]) / float(totalWordCount)
+        resultList.append(list([wordPair[0], int(wordPair[1]), wordFrequency]))
+    return resultList
 
 def diff_worddata_tables(csmData, sortedEvalWordData):
     """
@@ -80,12 +94,12 @@ def diff_worddata_tables(csmData, sortedEvalWordData):
 
     for wordPair in sortedEvalWordData:
         word = wordPair[0]
-        wordFreq = wordPair[1]
+        wordFreq = wordPair[2]
         csmWordFreq = find_frequency_in_worddata(word, csmData)
 
         if wordFreq > csmWordFreq and csmWordFreq > 0.0:
             diffFreq = wordFreq - csmWordFreq
-            print word, wordFreq, " > ", csmWordFreq, " ==>> ", "{:0.4}".format(diffFreq)
+            #print word, wordFreq, " > ", csmWordFreq, " ==>> ", "{:0.4}".format(diffFreq)
             diffTable.append((word, diffFreq))
 
     diffTable.sort(key=operator.itemgetter(1))
@@ -150,19 +164,39 @@ class CommonSenseMatrix():
 
                     fileCount += 1
 
+            print('Learned from ' + str(fileCount) + ' of ' + str(filesInFolder) + ' files.')
+
             if fileCount > 0:
                 # Transform totalWordData into data list, sorted descending by count
                 try:
                     sortedWordData = worddata_to_sorted(totalWordData, descending=True)
-                    print('Learned from ' + str(fileCount) + ' of ' + str(filesInFolder) + ' files.')
                 except:
                     print('ERROR: Could not sort word data!')
                     return False
 
+                # Get total word counts
+                (totalWordCount, uniqueWordCount) = get_total_word_counts(sortedWordData)
+                print('Learned ' + str(totalWordCount) + ' words in total, ' + str(uniqueWordCount) + ' unique.')
+
+                # Calculate word frequencies
+                try:
+                    finalWordData = calculate_word_frequencies(sortedWordData, totalWordCount)
+                except:
+                    print('ERROR: Could not calculate word frequencies!')
+                    return False
+
+                csmData = {}
+                csmData['meta'] = {
+                    'source' : sourceFolder,
+                    'total_count': totalWordCount,
+                    'unique_count' : uniqueWordCount
+                }
+                csmData['words'] = finalWordData
+
                 # Store sortedWordData as JSON
                 csmFilePath = path_to_csm_filename(sourceFolder)
                 print('Writing Common Sense Matrix data to ' + csmFilePath + " ...")
-                CommonSenseMatrix.write_csm(csmFilePath, sortedWordData)
+                CommonSenseMatrix.write_csm(csmFilePath, csmData)
             else:
                 print('STRANGE: Did not learn from any of the files.')
         else:
@@ -217,6 +251,8 @@ class CommonSenseMatrix():
             print('ERROR: Could not load word table from ' + fileoperations.shorten_filename(evalFilename) + '!')
             return False
 
+        print('Solving Common Sense Matrix...')
+
         # Transform word table (row-based plain table) to word data (word-associated counts)
         try:
             evalWordData = wordtable_csv_to_worddata(evalWordTable)
@@ -234,28 +270,41 @@ class CommonSenseMatrix():
 
         # Transform totalWordData into data list, sorted descending by count
         try:
-            sortedEvalWordData = worddata_to_sorted(finalEvalWordData, descending=True)
+            sortedFinalEvalWordData = worddata_to_sorted(finalEvalWordData, descending=True)
         except:
             print('ERROR: Could not sort word data!')
             return False
 
+        # Get total word counts
+        (totalWordCount, uniqueWordCount) = get_total_word_counts(sortedFinalEvalWordData)
+        print('Learned ' + str(totalWordCount) + ' words in total, ' + str(uniqueWordCount) + ' unique.')
+
         try:
-            resultTable = diff_worddata_tables(csmData, sortedEvalWordData)
+            sortedFinalEvalWordData = calculate_word_frequencies(sortedFinalEvalWordData, totalWordCount)
         except:
-            print('ERROR: Could not diff CSM data against evaluation word data!')
+            print('ERROR: Could not calculate word frequencies for evaluate word data!')
             return False
+
+        #try:
+        resultTable = diff_worddata_tables(csmData['words'], sortedFinalEvalWordData)
+        #except:
+        #    print('ERROR: Could not diff CSM data against evaluation word data!')
+        #    return False
 
         # Write resultTable
         csmResultFilename = os.path.splitext(evalPath)[0] + FILESUFFIX_RESULT
         wordRow = ''
         dataRow = ''
-        with open(csmResultFilename, 'wb') as resultFile:
-            for itemIndex, item in enumerate(resultTable):
-                wordRow = wordRow + (',' if itemIndex > 0 else '') + item[0]
-                dataRow = dataRow + (',' if itemIndex > 0 else '') + "{:0.6}".format(item[1])
-            resultFile.write(wordRow + '\n')
-            resultFile.write(dataRow + '\n')
-
+        try:
+            with open(csmResultFilename, 'wb') as resultFile:
+                for itemIndex, item in enumerate(resultTable):
+                    wordRow = wordRow + (',' if itemIndex > 0 else '') + item[0]
+                    dataRow = dataRow + (',' if itemIndex > 0 else '') + "{:0.6}".format(item[1])
+                resultFile.write(wordRow + '\n')
+                resultFile.write(dataRow + '\n')
+            print('Saved result table to ' + csmResultFilename)
+        except:
+            print('ERROR: Could not write result table to ' + csmResultFilename + '!')
 
     #
     # Static members
