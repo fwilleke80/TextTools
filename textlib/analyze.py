@@ -5,7 +5,7 @@ import csv, json
 import time, datetime
 import operator
 import string
-from textlib import tokenize,readability,hashes
+from textlib import tokenize, readability, hashes, fileoperations
 
 
 ####################################
@@ -46,30 +46,6 @@ def get_datetime_now(dtFormat = '%Y-%m-%d %H:%M'):
 #
 ####################################
 
-def count_files(path, extension):
-    """Count files in a folder that match a certain file extension
-    """
-    count = 0
-    for file in os.listdir(path):
-        if file.endswith(extension):
-            count += 1
-    return count
-
-
-def shorten_filename(full_path):
-    """Takes a path and returns only the
-    last part of it (e.g. name of the file)
-    """
-    return os.path.basename(full_path)
-
-def read_text_file(filePath):
-    """Read text file as raw binary file,
-    and return contents.
-    """
-    with open(filePath, 'rb') as textFile:
-        text = textFile.read()
-    return text
-
 def make_metadata_filename(filename):
     """From the .txt file's original filename & path,
     create the filename & path of the metadata .json file
@@ -83,17 +59,6 @@ def make_wordtable_filename(filename):
     """
     fileBasePath = os.path.splitext(filename)[0]
     return os.path.join(fileBasePath + FILESUFFIX_CSV)
-
-def load_json(filename):
-    with open(filename, 'rb') as jsonFile:
-        return json.load(jsonFile)
-
-def write_json(data, filename):
-    """Export data as structured JSON file
-    """
-    jsonData = json.dumps(data, indent=4, sort_keys=True)
-    with open(filename, 'wb') as jsonFile:
-        jsonFile.write(jsonData)
 
 def write_csv(data, filename):
     """Export data as CSV file
@@ -168,6 +133,10 @@ def compute_metadata(textData):
 
     # Iterate sentences
     for sentence in textData['sentences']:
+
+        # TODO: This is zero sometimes, even though the sentence is not empty. Why?
+        if len(sentence['words']) == 0:
+            continue
 
         # Total counters for whole sentence
         totalSyllableCountPerSentence = 0
@@ -253,7 +222,7 @@ def metadata_header(filename, text, language):
     nowStr = get_datetime_now()
 
     meta = {
-        'Filename' : shorten_filename(filename),
+        'Filename' : fileoperations.shorten_filename(filename),
         'MD5' : hashes.get_file_md5(filename),
         'CRC32' : hashes.get_file_crc32(filename),
         'Date of analysis' : nowStr,
@@ -392,7 +361,7 @@ def metadata_is_uptodate(filename, language):
     # Open metadata .json file
     metadataFilePath = make_metadata_filename(filename)
     try:
-        metadata = load_json(metadataFilePath)['_meta']
+        metadata = fileoperations.load_json(metadataFilePath)['_meta']
     except:
         #print('Could not load metadata for ' + shorten_filename(filename) + '.')
         return False
@@ -496,7 +465,7 @@ def process_file(filePath, lang='de_DE'):
 
     # Read text file
     print('Reading file...')
-    text = read_text_file(filePath).decode('utf-8')
+    text = fileoperations.read_text_file(filePath).decode('utf-8')
 
     # Process text file
     (textData, wordTable) = process_text(text, lang=lang)
@@ -510,7 +479,7 @@ def process_file(filePath, lang='de_DE'):
 
     # Write result filea
     print('Writing JSON metadata file...')
-    write_json(textData, metadataFilePath)
+    fileoperations.write_json(textData, metadataFilePath)
     print('Writing word count CSV table file...')
     write_csv(wordTable, wordTableFilePath)
 
@@ -518,7 +487,7 @@ def process_file(filePath, lang='de_DE'):
     return (textData, wordTable)
 
 
-def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
+def analyze(sourcePath, fileExtension='.txt', lang='de_DE', forceAnalyze=False):
     """Check filePath, start processing, measure processing time
     """
     print('Analyze version: ' + ANALYZE_VERSION)
@@ -546,24 +515,25 @@ def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
 
         # Process files in folder
         fileCount = 0
-        filesInFolder = count_files(sourcePath, fileExtension)
+        filesInFolder = fileoperations.count_files(sourcePath, fileExtension)
         for file in os.listdir(sourcePath):
             if file.endswith(fileExtension):
                 filename = os.path.join(sourcePath, file)
                 # Check if we need to analyze this file
-                if metadata_is_uptodate(filename, language=lang):
+                if metadata_is_uptodate(filename, language=lang) and forceAnalyze == False:
                     # Metadata is up to date. Just load it and merge for the global table
                     print('Metadata is up to date. Skipping analysis.')
 
                     # Load existing metadata file and merge (to update global data)
-                    textData = load_json(make_metadata_filename(filename))
+                    textData = fileoperations.load_json(make_metadata_filename(filename))
                     merge_textdata(textData, globalTextData)
                     # TODO: Update global word table, too
                     # merge_wordtable(wordTable, globalWordTable)
                     # compute_wordfrequencies(globalWordTable)
                 else:
                     # Metadata does not exist or is outdated. Analyze file.
-                    print('Analyzing ' + shorten_filename(filename) + '...')
+                    print('Analyzing ' +
+                          fileoperations.shorten_filename(filename) + '...')
                     (textData, wordTable) = process_file(filename, lang=lang)
                     merge_textdata(textData, globalTextData)
                     merge_wordtable(wordTable, globalWordTable)
@@ -592,7 +562,7 @@ def analyze(sourcePath, fileExtension='.txt', lang='de_DE'):
 
             # Write result files
             print('Writing global JSON metadata file...')
-            write_json(globalTextData, globalMetadataFilePath)
+            fileoperations.write_json(globalTextData, globalMetadataFilePath)
             print('Writing global word count CSV table file...')
             write_csv(finalGlobalWordTable, globalWordTableFilePath)
             print('')

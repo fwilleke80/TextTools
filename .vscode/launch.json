@@ -1,0 +1,82 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: TextTool ANALYZE",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--analyze"
+            ]
+        },
+        {
+            "name": "Python: TextTool ANALYZE csm_eval_test.txt",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "csm_eval_test.txt",
+                "--analyze"
+            ]
+        },
+       {
+            "name": "Python: TextTool ANALYZE FORCE",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--analyze",
+                "--force"
+            ]
+        },
+        {
+            "name": "Python: TextTool CSM LEARN",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--csm",
+                "learn",
+            ]
+        },
+        {
+            "name": "Python: TextTool ANALYZE FORCE CSM LEARN",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--analyze",
+                "--force",
+                "--csm",
+                "learn",
+            ]
+        },
+        {
+            "name": "Python: TextTool CSM EVALUATE",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/texttool.py",
+            "console": "integratedTerminal",
+            "args": [
+                "test",
+                "--csm",
+                "evaluate",
+                "csm_eval_test_wordfrequencies.csv"
+            ]
+        }
+
+    ]
+}
